@@ -21,4 +21,6 @@ RUN pip install --upgrade pip \
 
 EXPOSE 80
 
-CMD ["python", "app.py"]
+# 使用 gunicorn 启动，性能更好；设置日志实时输出
+ENV PYTHONUNBUFFERED=1
+CMD exec gunicorn --bind :80 --workers 1 --threads 8 --timeout 0 app:app
