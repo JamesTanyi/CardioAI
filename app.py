@@ -5,69 +5,157 @@ BloodTrack CloudRun 主入口
 
 import os
 import sys
-import sqlite3
 import json
 from flask import Flask, request, jsonify
 from datetime import datetime
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, BASE_DIR)
+# 数据库配置
+USE_CLOUD_DB = os.environ.get("USE_CLOUD_DB", "true").lower() == "true"
 
-DB_PATH = os.environ.get("DB_PATH", "/tmp/bloodtrack.db")
-
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
-
-def init_db():
-    conn = get_db()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS measurements (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id     TEXT NOT NULL,
-            sbp         INTEGER NOT NULL,
-            dbp         INTEGER NOT NULL,
-            hr          INTEGER DEFAULT 75,
-            symptoms    TEXT DEFAULT '[]',
-            risk_level  TEXT DEFAULT 'normal',
-            risk_text   TEXT DEFAULT '',
-            analysis    TEXT DEFAULT '{}',
-            datetime    TEXT NOT NULL,
-            created_at  TEXT DEFAULT (datetime('now'))
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id     TEXT UNIQUE NOT NULL,
-            created_at  TEXT DEFAULT (datetime('now'))
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS family_bindings (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            family_id   TEXT NOT NULL,
-            patient_id  TEXT NOT NULL,
-            name        TEXT NOT NULL,
-            created_at  TEXT DEFAULT (datetime('now')),
-            UNIQUE(family_id, patient_id)
-        )
-    """)
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS feedbacks (
-            id          INTEGER PRIMARY KEY AUTOINCREMENT,
-            from_id     TEXT NOT NULL,
-            from_role   TEXT NOT NULL,
-            to_id       TEXT NOT NULL,
-            content     TEXT NOT NULL,
-            is_read     INTEGER DEFAULT 0,
-            created_at  TEXT DEFAULT (datetime('now'))
-        )
-    """)
-    conn.commit()
-    conn.close()
-    print("✅ [DB] SQLite 初始化完成", flush=True)
+if USE_CLOUD_DB:
+    # 使用腾讯云 MySQL
+    import pymysql
+    DB_CONFIG = {
+        'host': os.environ.get("DB_HOST", "10.0.0.100"),  # 云托管内网地址
+        'port': int(os.environ.get("DB_PORT", 3306)),
+        'user': os.environ.get("DB_USER", "root"),
+        'password': os.environ.get("DB_PASSWORD", ""),
+        'database': os.environ.get("DB_NAME", "cardioai"),
+        'charset': 'utf8mb4'
+    }
+    print("✅ 使用腾讯云 MySQL 数据库", flush=True)
+    
+    def get_db():
+        conn = pymysql.connect(**DB_CONFIG)
+        conn.cursorclass = pymysql.cursors.DictCursor
+        return conn
+    
+    def init_db():
+        conn = get_db()
+        cursor = conn.cursor()
+        
+        # measurements 表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS measurements (
+                id          INT AUTO_INCREMENT PRIMARY KEY,
+                user_id     VARCHAR(100) NOT NULL,
+                sbp         INT NOT NULL,
+                dbp         INT NOT NULL,
+                hr          INT DEFAULT 75,
+                symptoms    TEXT DEFAULT '[]',
+                risk_level  VARCHAR(20) DEFAULT 'normal',
+                risk_text   TEXT DEFAULT '',
+                analysis    TEXT DEFAULT '{}',
+                datetime    VARCHAR(50) NOT NULL,
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_user_id (user_id),
+                INDEX idx_datetime (datetime)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        
+        # users 表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id          INT AUTO_INCREMENT PRIMARY KEY,
+                user_id     VARCHAR(100) UNIQUE NOT NULL,
+                name        VARCHAR(50) DEFAULT '',
+                age         INT DEFAULT 0,
+                gender      VARCHAR(10) DEFAULT '',
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        
+        # family_bindings 表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS family_bindings (
+                id          INT AUTO_INCREMENT PRIMARY KEY,
+                family_id   VARCHAR(100) NOT NULL,
+                patient_id  VARCHAR(100) NOT NULL,
+                name        VARCHAR(50) NOT NULL,
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_binding (family_id, patient_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        
+        # feedbacks 表
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS feedbacks (
+                id          INT AUTO_INCREMENT PRIMARY KEY,
+                from_id     VARCHAR(100) NOT NULL,
+                from_role   VARCHAR(20) NOT NULL,
+                to_id       VARCHAR(100) NOT NULL,
+                content     TEXT NOT NULL,
+                is_read     INT DEFAULT 0,
+                created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_to_id (to_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+        
+        conn.commit()
+        conn.close()
+        print("✅ [DB] MySQL 初始化完成", flush=True)
+else:
+    # 使用本地 SQLite（仅开发测试用）
+    import sqlite3
+    DB_PATH = os.environ.get("DB_PATH", "/tmp/bloodtrack.db")
+    print("⚠️ 使用本地 SQLite 数据库（仅开发测试）", flush=True)
+    
+    def get_db():
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        return conn
+    
+    def init_db():
+        conn = get_db()
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS measurements (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     TEXT NOT NULL,
+                sbp         INTEGER NOT NULL,
+                dbp         INTEGER NOT NULL,
+                hr          INTEGER DEFAULT 75,
+                symptoms    TEXT DEFAULT '[]',
+                risk_level  TEXT DEFAULT 'normal',
+                risk_text   TEXT DEFAULT '',
+                analysis    TEXT DEFAULT '{}',
+                datetime    TEXT NOT NULL,
+                created_at  TEXT DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     TEXT UNIQUE NOT NULL,
+                name        TEXT DEFAULT '',
+                age         INTEGER DEFAULT 0,
+                gender      TEXT DEFAULT '',
+                created_at  TEXT DEFAULT (datetime('now'))
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS family_bindings (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                family_id   TEXT NOT NULL,
+                patient_id  TEXT NOT NULL,
+                name        TEXT NOT NULL,
+                created_at  TEXT DEFAULT (datetime('now')),
+                UNIQUE(family_id, patient_id)
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS feedbacks (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                from_id     TEXT NOT NULL,
+                from_role   TEXT NOT NULL,
+                to_id       TEXT NOT NULL,
+                content     TEXT NOT NULL,
+                is_read     INTEGER DEFAULT 0,
+                created_at  TEXT DEFAULT (datetime('now'))
+            )
+        """)
+        conn.commit()
+        conn.close()
+        print("✅ [DB] SQLite 初始化完成", flush=True)
 
 try:
     from engine.cardiovascular_engine import CardiovascularEngine
@@ -160,22 +248,42 @@ def save_history():
         return jsonify({"error": "缺少必要字段: userId / sbp / dbp / date"}), 400
 
     conn = get_db()
+    cursor = conn.cursor()
     try:
-        conn.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
-        conn.execute("""
-            INSERT INTO measurements
-                (user_id, sbp, dbp, hr, symptoms, risk_level, risk_text, analysis, datetime)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            user_id,
-            int(sbp), int(dbp),
-            int(data.get("hr", 75)),
-            json.dumps(data.get("symptoms", []), ensure_ascii=False),
-            data.get("riskLevel", "normal"),
-            data.get("riskText", ""),
-            json.dumps(data.get("analysis", {}), ensure_ascii=False),
-            datetime_str
-        ))
+        if USE_CLOUD_DB:
+            # MySQL 语法
+            cursor.execute("INSERT IGNORE INTO users (user_id) VALUES (%s)", (user_id,))
+            cursor.execute("""
+                INSERT INTO measurements
+                    (user_id, sbp, dbp, hr, symptoms, risk_level, risk_text, analysis, datetime)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                user_id,
+                int(sbp), int(dbp),
+                int(data.get("hr", 75)),
+                json.dumps(data.get("symptoms", []), ensure_ascii=False),
+                data.get("riskLevel", "normal"),
+                data.get("riskText", ""),
+                json.dumps(data.get("analysis", {}), ensure_ascii=False),
+                datetime_str
+            ))
+        else:
+            # SQLite 语法
+            cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
+            cursor.execute("""
+                INSERT INTO measurements
+                    (user_id, sbp, dbp, hr, symptoms, risk_level, risk_text, analysis, datetime)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                user_id,
+                int(sbp), int(dbp),
+                int(data.get("hr", 75)),
+                json.dumps(data.get("symptoms", []), ensure_ascii=False),
+                data.get("riskLevel", "normal"),
+                data.get("riskText", ""),
+                json.dumps(data.get("analysis", {}), ensure_ascii=False),
+                datetime_str
+            ))
         conn.commit()
         print(f"💾 [DB] 保存: {user_id} {datetime_str} {sbp}/{dbp}", flush=True)
         return jsonify({"code": 0, "message": "保存成功"})
@@ -198,26 +306,46 @@ def get_history():
 
     if viewer_id and viewer_id != user_id:
         conn = get_db()
-        binding = conn.execute(
-            "SELECT id FROM family_bindings WHERE family_id=? AND patient_id=?",
-            (viewer_id, user_id)
-        ).fetchone()
+        cursor = conn.cursor()
+        if USE_CLOUD_DB:
+            cursor.execute(
+                "SELECT id FROM family_bindings WHERE family_id=%s AND patient_id=%s",
+                (viewer_id, user_id)
+            )
+        else:
+            cursor.execute(
+                "SELECT id FROM family_bindings WHERE family_id=? AND patient_id=?",
+                (viewer_id, user_id)
+            )
+        binding = cursor.fetchone()
         conn.close()
         if not binding:
             return jsonify({"error": "无权限查看该用户数据，请先绑定"}), 403
 
     conn = get_db()
+    cursor = conn.cursor()
     try:
-        rows = conn.execute("""
-            SELECT * FROM measurements
-            WHERE user_id = ?
-            ORDER BY datetime DESC
-            LIMIT ?
-        """, (user_id, limit)).fetchall()
-
+        if USE_CLOUD_DB:
+            cursor.execute("""
+                SELECT * FROM measurements
+                WHERE user_id = %s
+                ORDER BY datetime DESC
+                LIMIT %s
+            """, (user_id, limit))
+        else:
+            cursor.execute("""
+                SELECT * FROM measurements
+                WHERE user_id = ?
+                ORDER BY datetime DESC
+                LIMIT ?
+            """, (user_id, limit))
+        
+        rows = cursor.fetchall()
+        
         records = []
         for row in rows:
-            rec = dict(row)
+            rec = dict(row) if isinstance(row, dict) else dict(row)
+            # MySQL 返回的是字符串，需要解析
             rec["symptoms"] = json.loads(rec.get("symptoms") or "[]")
             rec["analysis"] = json.loads(rec.get("analysis") or "{}")
             records.append(rec)
