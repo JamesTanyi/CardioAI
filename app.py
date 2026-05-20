@@ -188,6 +188,96 @@ def _normalize_record_time(rec):
         rec["hr"] = 70
     return rec
 
+
+def _format_record_for_db(item):
+    return {
+        "user_id": item.get("userId") or item.get("user_id"),
+        "sbp": int(item.get("sbp", 0)),
+        "dbp": int(item.get("dbp", 0)),
+        "hr": int(item.get("hr", 75)),
+        "symptoms": item.get("symptoms", []),
+        "risk_level": item.get("riskLevel") or item.get("risk_level") or "normal",
+        "risk_text": item.get("riskText") or item.get("risk_text") or "",
+        "analysis": item.get("analysis") or {},
+        "datetime": item.get("datetime") or item.get("date") or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+
+def _save_measurement(conn, cursor, item):
+    record = _format_record_for_db(item)
+    if not all([record["user_id"], record["sbp"], record["dbp"], record["datetime"]]):
+        raise ValueError("Missing required record fields")
+    if USE_CLOUD_DB:
+        cursor.execute("INSERT IGNORE INTO users (user_id) VALUES (%s)", (record["user_id"],))
+        cursor.execute(
+            """
+                INSERT INTO measurements
+                    (user_id, sbp, dbp, hr, symptoms, risk_level, risk_text, analysis, datetime)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                record["user_id"],
+                record["sbp"], record["dbp"], record["hr"],
+                json.dumps(record["symptoms"], ensure_ascii=False),
+                record["risk_level"], record["risk_text"],
+                json.dumps(record["analysis"], ensure_ascii=False),
+                record["datetime"]
+            )
+        )
+    else:
+        cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (record["user_id"],))
+        cursor.execute(
+            """
+                INSERT INTO measurements
+                    (user_id, sbp, dbp, hr, symptoms, risk_level, risk_text, analysis, datetime)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                record["user_id"],
+                record["sbp"], record["dbp"], record["hr"],
+                json.dumps(record["symptoms"], ensure_ascii=False),
+                record["risk_level"], record["risk_text"],
+                json.dumps(record["analysis"], ensure_ascii=False),
+                record["datetime"]
+            )
+        )
+
+
+def _fetch_history_from_db(user_id, limit=90):
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        if USE_CLOUD_DB:
+            cursor.execute(
+                "SELECT * FROM measurements WHERE user_id=%s ORDER BY datetime DESC LIMIT %s",
+                (user_id, limit)
+            )
+        else:
+            cursor.execute(
+                "SELECT * FROM measurements WHERE user_id = ? ORDER BY datetime DESC LIMIT ?",
+                (user_id, limit)
+            )
+        rows = cursor.fetchall()
+        results = []
+        for row in rows:
+            rec = dict(row) if isinstance(row, dict) else dict(row)
+            rec["symptoms"] = json.loads(rec.get("symptoms") or "[]")
+            rec["analysis"] = json.loads(rec.get("analysis") or "{}")
+            results.append({
+                "userId": rec.get("user_id"),
+                "sbp": rec.get("sbp"),
+                "dbp": rec.get("dbp"),
+                "hr": rec.get("hr"),
+                "symptoms": rec.get("symptoms"),
+                "riskLevel": rec.get("risk_level"),
+                "riskText": rec.get("risk_text"),
+                "analysis": rec.get("analysis"),
+                "datetime": rec.get("datetime")
+            })
+        return results
+    finally:
+        conn.close()
+
 app = Flask(__name__)
 init_db()
 
@@ -215,8 +305,15 @@ def analyze():
     current = data.get("current")
     if current is None:
         return jsonify({"error": "Missing 'current' record"}), 400
+    if history is None:
+        history = []
     if not isinstance(history, list):
         return jsonify({"error": "'history' must be a list"}), 400
+
+    if not history:
+        fallback_user_id = current.get("userId") or current.get("user_id")
+        if fallback_user_id:
+            history = _fetch_history_from_db(fallback_user_id, limit=90)
 
     history = [_normalize_record_time(r) for r in history]
     current = _normalize_record_time(current)
@@ -239,54 +336,27 @@ def save_history():
     except Exception as e:
         return jsonify({"error": "Invalid JSON", "detail": str(e)}), 400
 
-    user_id      = data.get("userId") or data.get("user_id")
-    sbp          = data.get("sbp")
-    dbp          = data.get("dbp")
-    datetime_str = data.get("date") or data.get("datetime")
-
-    if not all([user_id, sbp, dbp, datetime_str]):
-        return jsonify({"error": "缺少必要字段: userId / sbp / dbp / date"}), 400
+    records = []
+    if isinstance(data, dict) and data.get("history") and isinstance(data.get("history"), list):
+        records = data.get("history")
+    elif isinstance(data, list):
+        records = data
+    else:
+        records = [data]
 
     conn = get_db()
     cursor = conn.cursor()
+    saved = 0
     try:
-        if USE_CLOUD_DB:
-            # MySQL 语法
-            cursor.execute("INSERT IGNORE INTO users (user_id) VALUES (%s)", (user_id,))
-            cursor.execute("""
-                INSERT INTO measurements
-                    (user_id, sbp, dbp, hr, symptoms, risk_level, risk_text, analysis, datetime)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (
-                user_id,
-                int(sbp), int(dbp),
-                int(data.get("hr", 75)),
-                json.dumps(data.get("symptoms", []), ensure_ascii=False),
-                data.get("riskLevel", "normal"),
-                data.get("riskText", ""),
-                json.dumps(data.get("analysis", {}), ensure_ascii=False),
-                datetime_str
-            ))
-        else:
-            # SQLite 语法
-            cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (user_id,))
-            cursor.execute("""
-                INSERT INTO measurements
-                    (user_id, sbp, dbp, hr, symptoms, risk_level, risk_text, analysis, datetime)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                user_id,
-                int(sbp), int(dbp),
-                int(data.get("hr", 75)),
-                json.dumps(data.get("symptoms", []), ensure_ascii=False),
-                data.get("riskLevel", "normal"),
-                data.get("riskText", ""),
-                json.dumps(data.get("analysis", {}), ensure_ascii=False),
-                datetime_str
-            ))
+        for item in records:
+            try:
+                _save_measurement(conn, cursor, item)
+                saved += 1
+            except Exception as inner_e:
+                print(f"⚠️ 跳过无效记录: {inner_e}", flush=True)
+
         conn.commit()
-        print(f"💾 [DB] 保存: {user_id} {datetime_str} {sbp}/{dbp}", flush=True)
-        return jsonify({"code": 0, "message": "保存成功"})
+        return jsonify({"code": 0, "message": "保存成功", "saved": saved})
     except Exception as e:
         return jsonify({"error": "保存失败", "detail": str(e)}), 500
     finally:
@@ -491,6 +561,97 @@ def get_feedback():
         return jsonify({"error": "查询失败", "detail": str(e)}), 500
     finally:
         conn.close()
+
+# ──────────────────────────────────────────────
+# /upload_excel  上传并解析 Excel 文件
+# ──────────────────────────────────────────────
+@app.route("/upload_excel", methods=["POST"])
+def upload_excel():
+    try:
+        if 'file' not in request.files:
+            return jsonify({"error": "没有文件"}), 400
+        
+        file = request.files['file']
+        user_id = request.form.get('userId') or request.form.get('user_id')
+        
+        if not user_id:
+            return jsonify({"error": "缺少 userId"}), 400
+        
+        if file.filename == '':
+            return jsonify({"error": "文件名为空"}), 400
+        
+        print(f"📥 收到 Excel 文件: {file.filename}", flush=True)
+        
+        # 读取文件内容
+        file_content = file.read()
+        
+        # 使用 openpyxl 库解析
+        try:
+            import io
+            from openpyxl import load_workbook
+            
+            wb = load_workbook(io.BytesIO(file_content))
+            sheet = wb.active
+            
+            # 获取表头（第一行）
+            headers = []
+            for cell in sheet[1]:
+                headers.append(str(cell.value).strip() if cell.value else '')
+            
+            print(f"📋 Excel 表头: {headers}", flush=True)
+            
+            # 解析数据行
+            records = []
+            for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+                if not row or all(v is None for v in row):
+                    continue
+                
+                record = {}
+                for col_idx, value in enumerate(row):
+                    if col_idx < len(headers):
+                        record[headers[col_idx]] = value
+                
+                records.append(record)
+            
+            print(f"📊 解析到 {len(records)} 条记录", flush=True)
+            
+        except ImportError:
+            return jsonify({"error": "服务器未安装 xlsx 库"}), 500
+        except Exception as e:
+            return jsonify({"error": f"Excel 解析失败: {str(e)}"}), 500
+        
+        if not records:
+            return jsonify({"code": 0, "message": "文件中没有数据", "saved": 0})
+        
+        # 保存到数据库
+        conn = get_db()
+        cursor = conn.cursor()
+        saved = 0
+        
+        try:
+            for item in records:
+                try:
+                    record = _format_record_for_db({**item, "userId": user_id})
+                    if not all([record["user_id"], record["sbp"], record["dbp"], record["datetime"]]):
+                        continue
+                    
+                    _save_measurement(conn, cursor, {**item, "userId": user_id})
+                    saved += 1
+                except Exception as inner_e:
+                    print(f"⚠️ 跳过无效记录: {inner_e}", flush=True)
+            
+            conn.commit()
+            print(f"✅ 成功保存 {saved} 条记录", flush=True)
+            return jsonify({"code": 0, "message": "上传成功", "saved": saved})
+        
+        except Exception as e:
+            return jsonify({"error": f"保存失败: {str(e)}"}), 500
+        finally:
+            conn.close()
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 80))
