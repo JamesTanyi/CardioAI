@@ -2,27 +2,17 @@ FROM python:3.9-slim-bullseye
 
 WORKDIR /app
 
-# 强制 pip 使用官方源，彻底屏蔽清华镜像
-RUN mkdir -p /root/.pip && echo "[global]\nindex-url = https://pypi.org/simple" > /root/.pip/pip.conf
+# 用 pip 默认源（CloudBase 在国内，用官方源反而慢；依赖都是纯 wheel，不需要编译）
+COPY requirements.txt /app/
 
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    gfortran \
-    libatlas-base-dev \
-    liblapack-dev \
-    libblas-dev \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
 
-RUN pip install --upgrade pip \
-    && pip install -r requirements.txt
-
 EXPOSE 80
 
-# 设置环境变量
 ENV PYTHONUNBUFFERED=1
 ENV FORCE_SQLITE=true
 ENV DB_PATH=/tmp/bloodtrack.db
+
 CMD exec gunicorn --bind :80 --workers 1 --threads 8 --timeout 0 app:app
