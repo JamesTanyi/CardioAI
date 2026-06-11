@@ -21,6 +21,8 @@ RUN pip install --upgrade pip \
 
 EXPOSE 80
 
-# 设置环境变量，确保日志即时打印
+# 设置环境变量
 ENV PYTHONUNBUFFERED=1
+ENV FORCE_SQLITE=true
+ENV DB_PATH=/tmp/bloodtrack.db
 CMD exec gunicorn --bind :80 --workers 1 --threads 8 --timeout 0 app:app

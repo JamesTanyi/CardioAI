@@ -27,3 +27,6 @@ project.private.config.json
 
 # 空目录残留
 miniprogram/pages/feedback/
+
+# 推送脚本（含 Token，切勿提交）
+push.ps1

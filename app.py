@@ -10,31 +10,32 @@ from flask import Flask, request, jsonify
 from datetime import datetime
 
 # 数据库配置
-USE_CLOUD_DB = os.environ.get("USE_CLOUD_DB", "true").lower() == "true"
+# 优先级: 强制 SQLite > 环境变量 USE_CLOUD_DB > 默认 MySQL
+_force_sqlite = os.environ.get("FORCE_SQLITE", "").lower() == "true"
+_use_cloud_db_env = os.environ.get("USE_CLOUD_DB", "true").lower() == "true"
+USE_CLOUD_DB = _use_cloud_db_env and not _force_sqlite
 
 if USE_CLOUD_DB:
-    # 使用腾讯云 MySQL
     import pymysql
     DB_CONFIG = {
-        'host': os.environ.get("DB_HOST", "10.0.0.100"),  # 云托管内网地址
+        'host': os.environ.get("DB_HOST", "10.0.0.100"),
         'port': int(os.environ.get("DB_PORT", 3306)),
         'user': os.environ.get("DB_USER", "root"),
         'password': os.environ.get("DB_PASSWORD", ""),
         'database': os.environ.get("DB_NAME", "cardioai"),
-        'charset': 'utf8mb4'
+        'charset': 'utf8mb4',
+        'connect_timeout': 5
     }
-    print("✅ 使用腾讯云 MySQL 数据库", flush=True)
+    print("🔄 尝试连接腾讯云 MySQL 数据库...", flush=True)
     
-    def get_db():
+    def _get_cloud_db():
         conn = pymysql.connect(**DB_CONFIG)
         conn.cursorclass = pymysql.cursors.DictCursor
         return conn
     
-    def init_db():
-        conn = get_db()
+    def _init_cloud_db():
+        conn = _get_cloud_db()
         cursor = conn.cursor()
-        
-        # measurements 表
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS measurements (
                 id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -52,8 +53,6 @@ if USE_CLOUD_DB:
                 INDEX idx_datetime (datetime)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
-        
-        # users 表
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -64,8 +63,6 @@ if USE_CLOUD_DB:
                 created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
-        
-        # family_bindings 表
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS family_bindings (
                 id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -76,8 +73,6 @@ if USE_CLOUD_DB:
                 UNIQUE KEY unique_binding (family_id, patient_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
-        
-        # feedbacks 表
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS feedbacks (
                 id          INT AUTO_INCREMENT PRIMARY KEY,
@@ -90,15 +85,24 @@ if USE_CLOUD_DB:
                 INDEX idx_to_id (to_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
-        
         conn.commit()
         conn.close()
         print("✅ [DB] MySQL 初始化完成", flush=True)
-else:
-    # 使用本地 SQLite（仅开发测试用）
+    
+    # 尝试连接 MySQL，失败则自动降级到 SQLite
+    try:
+        _init_cloud_db()
+        get_db = _get_cloud_db
+        init_db = _init_cloud_db
+    except Exception as mysql_err:
+        print(f"❌ MySQL 连接失败: {mysql_err}", flush=True)
+        print("🔽 自动降级到 SQLite 模式", flush=True)
+        USE_CLOUD_DB = False
+
+if not USE_CLOUD_DB:
     import sqlite3
     DB_PATH = os.environ.get("DB_PATH", "/tmp/bloodtrack.db")
-    print("⚠️ 使用本地 SQLite 数据库（仅开发测试）", flush=True)
+    print(f"⚠️ 使用本地 SQLite 数据库: {DB_PATH}", flush=True)
     
     def get_db():
         conn = sqlite3.connect(DB_PATH)
@@ -107,7 +111,8 @@ else:
     
     def init_db():
         conn = get_db()
-        conn.execute("""
+        c = conn.cursor()
+        c.execute("""
             CREATE TABLE IF NOT EXISTS measurements (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id     TEXT NOT NULL,
@@ -122,7 +127,7 @@ else:
                 created_at  TEXT DEFAULT (datetime('now'))
             )
         """)
-        conn.execute("""
+        c.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id     TEXT UNIQUE NOT NULL,
@@ -132,7 +137,7 @@ else:
                 created_at  TEXT DEFAULT (datetime('now'))
             )
         """)
-        conn.execute("""
+        c.execute("""
             CREATE TABLE IF NOT EXISTS family_bindings (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 family_id   TEXT NOT NULL,
@@ -142,7 +147,7 @@ else:
                 UNIQUE(family_id, patient_id)
             )
         """)
-        conn.execute("""
+        c.execute("""
             CREATE TABLE IF NOT EXISTS feedbacks (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 from_id     TEXT NOT NULL,
@@ -446,17 +451,27 @@ def bind_family():
         return jsonify({"error": "不能绑定自己"}), 400
 
     conn = get_db()
+    cursor = conn.cursor()
     try:
-        user = conn.execute(
-            "SELECT id FROM users WHERE user_id=?", (patient_id,)
-        ).fetchone()
+        if USE_CLOUD_DB:
+            cursor.execute("SELECT id FROM users WHERE user_id=%s", (patient_id,))
+        else:
+            cursor.execute("SELECT id FROM users WHERE user_id=?", (patient_id,))
+        user = cursor.fetchone()
         if not user:
             return jsonify({"error": "患者ID不存在，请确认ID是否正确"}), 404
 
-        conn.execute("""
-            INSERT OR REPLACE INTO family_bindings (family_id, patient_id, name)
-            VALUES (?, ?, ?)
-        """, (family_id, patient_id, name))
+        if USE_CLOUD_DB:
+            cursor.execute("""
+                INSERT INTO family_bindings (family_id, patient_id, name)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE name=VALUES(name)
+            """, (family_id, patient_id, name))
+        else:
+            cursor.execute("""
+                INSERT OR REPLACE INTO family_bindings (family_id, patient_id, name)
+                VALUES (?, ?, ?)
+            """, (family_id, patient_id, name))
         conn.commit()
         print(f"🔗 [DB] 绑定: {family_id} → {patient_id} ({name})", flush=True)
         return jsonify({"code": 0, "message": "绑定成功"})
@@ -475,13 +490,23 @@ def get_family_list():
         return jsonify({"error": "缺少 familyId 参数"}), 400
 
     conn = get_db()
+    cursor = conn.cursor()
     try:
-        rows = conn.execute("""
-            SELECT patient_id, name, created_at
-            FROM family_bindings
-            WHERE family_id = ?
-            ORDER BY created_at DESC
-        """, (family_id,)).fetchall()
+        if USE_CLOUD_DB:
+            cursor.execute("""
+                SELECT patient_id, name, created_at
+                FROM family_bindings
+                WHERE family_id = %s
+                ORDER BY created_at DESC
+            """, (family_id,))
+        else:
+            cursor.execute("""
+                SELECT patient_id, name, created_at
+                FROM family_bindings
+                WHERE family_id = ?
+                ORDER BY created_at DESC
+            """, (family_id,))
+        rows = cursor.fetchall()
         return jsonify({"code": 0, "data": [dict(r) for r in rows]})
     except Exception as e:
         return jsonify({"error": "查询失败", "detail": str(e)}), 500
@@ -509,18 +534,32 @@ def send_feedback():
         return jsonify({"error": "反馈内容不能超过500字"}), 400
 
     conn = get_db()
+    cursor = conn.cursor()
     try:
-        binding = conn.execute(
-            "SELECT id FROM family_bindings WHERE family_id=? AND patient_id=?",
-            (from_id, to_id)
-        ).fetchone()
+        if USE_CLOUD_DB:
+            cursor.execute(
+                "SELECT id FROM family_bindings WHERE family_id=%s AND patient_id=%s",
+                (from_id, to_id)
+            )
+        else:
+            cursor.execute(
+                "SELECT id FROM family_bindings WHERE family_id=? AND patient_id=?",
+                (from_id, to_id)
+            )
+        binding = cursor.fetchone()
         if not binding:
             return jsonify({"error": "未绑定该患者，无法发送反馈"}), 403
 
-        conn.execute("""
-            INSERT INTO feedbacks (from_id, from_role, to_id, content)
-            VALUES (?, ?, ?, ?)
-        """, (from_id, from_role, to_id, content))
+        if USE_CLOUD_DB:
+            cursor.execute("""
+                INSERT INTO feedbacks (from_id, from_role, to_id, content)
+                VALUES (%s, %s, %s, %s)
+            """, (from_id, from_role, to_id, content))
+        else:
+            cursor.execute("""
+                INSERT INTO feedbacks (from_id, from_role, to_id, content)
+                VALUES (?, ?, ?, ?)
+            """, (from_id, from_role, to_id, content))
         conn.commit()
         print(f"💬 [DB] 反馈: {from_id}({from_role}) → {to_id}", flush=True)
         return jsonify({"code": 0, "message": "反馈已发送"})
@@ -539,22 +578,39 @@ def get_feedback():
         return jsonify({"error": "缺少 userId 参数"}), 400
 
     conn = get_db()
+    cursor = conn.cursor()
     try:
-        rows = conn.execute("""
-            SELECT id, from_id, from_role, content, is_read, created_at
-            FROM feedbacks
-            WHERE to_id = ?
-            ORDER BY created_at DESC
-            LIMIT 50
-        """, (user_id,)).fetchall()
+        if USE_CLOUD_DB:
+            cursor.execute("""
+                SELECT id, from_id, from_role, content, is_read, created_at
+                FROM feedbacks
+                WHERE to_id = %s
+                ORDER BY created_at DESC
+                LIMIT 50
+            """, (user_id,))
+        else:
+            cursor.execute("""
+                SELECT id, from_id, from_role, content, is_read, created_at
+                FROM feedbacks
+                WHERE to_id = ?
+                ORDER BY created_at DESC
+                LIMIT 50
+            """, (user_id,))
+        rows = cursor.fetchall()
 
         feedbacks = [dict(r) for r in rows]
         unread_count = sum(1 for f in feedbacks if f["is_read"] == 0)
 
-        conn.execute(
-            "UPDATE feedbacks SET is_read=1 WHERE to_id=? AND is_read=0",
-            (user_id,)
-        )
+        if USE_CLOUD_DB:
+            cursor.execute(
+                "UPDATE feedbacks SET is_read=1 WHERE to_id=%s AND is_read=0",
+                (user_id,)
+            )
+        else:
+            cursor.execute(
+                "UPDATE feedbacks SET is_read=1 WHERE to_id=? AND is_read=0",
+                (user_id,)
+            )
         conn.commit()
         return jsonify({"code": 0, "data": feedbacks, "unread": unread_count})
     except Exception as e:
