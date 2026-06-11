@@ -1,0 +1,32 @@
+# 微信小程序前端（不需要在 Docker 中）
+miniprogram/
+project.config.json
+project.private.config.json
+*.wxml
+*.wxss
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 数据库文件
+*.db
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitmodules
+
+# 其他
+README.md
+push.ps1
+完善数据库.py
+node_modules/
+.codebuddy/
