@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 数据库文件（本地 SQLite）
+*.db
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 微信开发者工具
+*.zip
+node_modules/
+miniprogram_npm/
+
+# 私有配置（含云环境密钥等）
+project.private.config.json
+
+# CodeBuddy
+.codebuddy/
+
+# 空目录残留
+miniprogram/pages/feedback/
