@@ -26,7 +26,16 @@
   "compileType": "miniprogram",
   "simulatorPluginLibVersion": {},
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      {
+        "type": "folder",
+        "value": "node_modules"
+      },
+      {
+        "type": "glob",
+        "value": "**/*.map"
+      }
+    ],
     "include": []
   },
   "appid": "wxc5b1f8601518c8cb",

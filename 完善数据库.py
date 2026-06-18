@@ -61,6 +61,7 @@ def init_database():
             family_id   TEXT NOT NULL,
             patient_id  TEXT NOT NULL,
             name        TEXT NOT NULL,
+            status      TEXT DEFAULT 'active',
             created_at  TEXT DEFAULT (datetime('now')),
             UNIQUE(family_id, patient_id)
         )
@@ -83,7 +84,7 @@ def init_database():
     
     conn.commit()
     
-    # 5. 检查并添加缺失的字段
+    # 5. 检查并添加缺失的字段 + 补全缺失的表
     try:
         cursor.execute("PRAGMA table_info(measurements)")
         columns = [row[1] for row in cursor.fetchall()]
@@ -98,6 +99,52 @@ def init_database():
             
     except Exception as e:
         print(f"⚠️ 检查字段时出错: {e}")
+
+    # ★ v8：补全 doctor_bindings 和 invite_codes 表（旧版脚本缺失）
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS doctor_bindings (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            doctor_id   TEXT NOT NULL,
+            patient_id  TEXT NOT NULL,
+            doctor_name TEXT DEFAULT '',
+            hospital    TEXT DEFAULT '',
+            department  TEXT DEFAULT '',
+            status      TEXT DEFAULT 'active',
+            created_at  TEXT DEFAULT (datetime('now')),
+            UNIQUE(doctor_id, patient_id)
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS invite_codes (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            code        TEXT NOT NULL UNIQUE,
+            patient_id  TEXT NOT NULL,
+            used        INTEGER DEFAULT 0,
+            used_by     TEXT DEFAULT '',
+            created_at  TEXT DEFAULT (datetime('now')),
+            expires_at  TEXT
+        )
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS invite_tokens (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            token       TEXT NOT NULL UNIQUE,
+            patient_id  TEXT NOT NULL,
+            role        TEXT NOT NULL,
+            used        INTEGER DEFAULT 0,
+            used_by     TEXT DEFAULT '',
+            created_at  TEXT DEFAULT (datetime('now')),
+            expires_at  TEXT
+        )
+    """)
+
+    # ★ v8：为存量绑定表添加 status 字段
+    for tbl in ['family_bindings', 'doctor_bindings']:
+        try:
+            cursor.execute(f"ALTER TABLE {tbl} ADD COLUMN status TEXT DEFAULT 'active'")
+            print(f"➕ 为 {tbl} 添加 status 字段")
+        except Exception:
+            pass  # 字段已存在
     
     conn.commit()
     conn.close()

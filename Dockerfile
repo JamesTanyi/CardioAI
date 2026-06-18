@@ -13,6 +13,7 @@ EXPOSE 80
 
 ENV PYTHONUNBUFFERED=1
 ENV FORCE_SQLITE=true
-ENV DB_PATH=/tmp/bloodtrack.db
+# ★ 使用持久化数据目录，避免容器重启丢失数据
+ENV DB_PATH=/workspace/data/bloodtrack.db
 
 CMD exec gunicorn --bind :80 --workers 1 --threads 8 --timeout 0 app:app
