@@ -569,12 +569,58 @@ def bind_family():
     family_id  = data.get("familyId")
     patient_id = data.get("patientId")
     name       = data.get("name", "家人")
+    # 安全强化：仅接受基于 invite token 的绑定请求（避免泄露 patientId）
+    token = (data.get("invite_token") or data.get("token") or "").strip()
 
-    if not all([family_id, patient_id]):
-        return jsonify({"error": "缺少 familyId 或 patientId"}), 400
+    if not family_id:
+        return jsonify({"error": "缺少 familyId"}), 400
+
+    # 要求使用 invite token 进行绑定
+    if not token:
+        return jsonify({"error": "接口已限制为 token 驱动绑定，请使用 /generate_invite_token -> /validate_invite_token -> /bind_by_token 流程"}), 403
+
+    # 验证 token 并以 token 中的 patient_id 为准
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        if USE_CLOUD_DB:
+            cursor.execute("SELECT * FROM invite_tokens WHERE token=%s", (token,))
+        else:
+            cursor.execute("SELECT * FROM invite_tokens WHERE token=?", (token,))
+        token_row = cursor.fetchone()
+        if not token_row:
+            conn.close()
+            return jsonify({"error": "邀请 token 无效"}), 404
+
+        token_row = dict(token_row) if isinstance(token_row, dict) or hasattr(token_row, 'keys') else dict(token_row)
+        if token_row.get("used"):
+            conn.close()
+            return jsonify({"error": "该邀请 token 已被使用"}), 400
+
+        expires_str = token_row.get("expires_at")
+        if expires_str:
+            try:
+                expires_at = datetime.strptime(str(expires_str)[:19], "%Y-%m-%d %H:%M:%S")
+                if datetime.now() > expires_at:
+                    conn.close()
+                    return jsonify({"error": "邀请 token 已过期，请联系患者重新发送"}), 400
+            except Exception:
+                pass
+
+        # 仅允许与 family 角色相关的 token 用于 family 绑定
+        if token_row.get("role") != 'family':
+            conn.close()
+            return jsonify({"error": "此 token 不适用于家属绑定"}), 403
+
+        # 以 token 中 patient_id 为准，避免客户端传入任意 patientId
+        patient_id = token_row.get("patient_id")
+    except Exception as e:
+        conn.close()
+        return jsonify({"error": "验证 token 失败", "detail": str(e)}), 500
     if family_id == patient_id:
         return jsonify({"error": "不能绑定自己"}), 400
 
+    # conn 已在 token 验证时创建（或创建后已关闭）；为统一起见重新获取连接
     conn = get_db()
     cursor = conn.cursor()
     try:
@@ -807,10 +853,54 @@ def bind_doctor():
     doctor_name = data.get("doctorName", "")
     hospital    = data.get("hospital", "")
     department  = data.get("department", "")
+    token = (data.get("invite_token") or data.get("token") or "").strip()
 
-    if not all([doctor_id, patient_id]):
-        return jsonify({"error": "缺少 doctorId / patientId"}), 400
+    if not doctor_id:
+        return jsonify({"error": "缺少 doctorId"}), 400
 
+    # 强制要求使用 invite token 来完成绑定申请，避免泄露 patientId
+    if not token:
+        return jsonify({"error": "接口已限制为 token 驱动绑定，请使用 /generate_invite_token -> /validate_invite_token -> /bind_by_token 流程"}), 403
+
+    # 验证 token 并以 token 中的 patient_id 为准
+    conn = get_db()
+    cursor = conn.cursor()
+    try:
+        if USE_CLOUD_DB:
+            cursor.execute("SELECT * FROM invite_tokens WHERE token=%s", (token,))
+        else:
+            cursor.execute("SELECT * FROM invite_tokens WHERE token=?", (token,))
+        token_row = cursor.fetchone()
+        if not token_row:
+            conn.close()
+            return jsonify({"error": "邀请 token 无效"}), 404
+
+        token_row = dict(token_row) if isinstance(token_row, dict) or hasattr(token_row, 'keys') else dict(token_row)
+        if token_row.get("used"):
+            conn.close()
+            return jsonify({"error": "该邀请 token 已被使用"}), 400
+
+        expires_str = token_row.get("expires_at")
+        if expires_str:
+            try:
+                expires_at = datetime.strptime(str(expires_str)[:19], "%Y-%m-%d %H:%M:%S")
+                if datetime.now() > expires_at:
+                    conn.close()
+                    return jsonify({"error": "邀请 token 已过期，请联系患者重新发送"}), 400
+            except Exception:
+                pass
+
+        if token_row.get("role") != 'doctor':
+            conn.close()
+            return jsonify({"error": "此 token 不适用于医生绑定"}), 403
+
+        # 以 token 中 patient_id 为准
+        patient_id = token_row.get("patient_id")
+    except Exception as e:
+        conn.close()
+        return jsonify({"error": "验证 token 失败", "detail": str(e)}), 500
+
+    # 重新获取连接用于后续写入（如果上面已创建并关闭了 conn，则需要再建）
     conn = get_db()
     cursor = conn.cursor()
     try:
@@ -892,9 +982,47 @@ def confirm_binding():
     viewer_id = data.get("viewerId")  # 家属ID 或 医生ID
     patient_id = data.get("patientId")
     role = data.get("role", "family")  # 'family' 或 'doctor'
+    token = (data.get("invite_token") or data.get("token") or "").strip()
 
-    if not all([viewer_id, patient_id]):
-        return jsonify({"error": "缺少 viewerId / patientId"}), 400
+    if not viewer_id:
+        return jsonify({"error": "缺少 viewerId"}), 400
+
+    # 如果提供了 invite token，则以 token 中的 patient_id 为准并验证 token
+    token_row = None
+    if token:
+        conn = get_db()
+        cursor = conn.cursor()
+        try:
+            if USE_CLOUD_DB:
+                cursor.execute("SELECT * FROM invite_tokens WHERE token=%s", (token,))
+            else:
+                cursor.execute("SELECT * FROM invite_tokens WHERE token=?", (token,))
+            token_row = cursor.fetchone()
+            if not token_row:
+                conn.close()
+                return jsonify({"error": "邀请 token 无效"}), 404
+            token_row = dict(token_row) if isinstance(token_row, dict) or hasattr(token_row, 'keys') else dict(token_row)
+            if token_row.get("used"):
+                conn.close()
+                return jsonify({"error": "该邀请 token 已被使用"}), 400
+            expires_str = token_row.get("expires_at")
+            if expires_str:
+                try:
+                    expires_at = datetime.strptime(str(expires_str)[:19], "%Y-%m-%d %H:%M:%S")
+                    if datetime.now() > expires_at:
+                        conn.close()
+                        return jsonify({"error": "邀请 token 已过期，请联系患者重新发送"}), 400
+                except Exception:
+                    pass
+            # 角色匹配
+            if token_row.get("role") != role:
+                conn.close()
+                return jsonify({"error": "此 token 与请求角色不匹配"}), 403
+            # 以 token 中 patient_id 为准
+            patient_id = token_row.get("patient_id")
+        except Exception as e:
+            conn.close()
+            return jsonify({"error": "验证 token 失败", "detail": str(e)}), 500
 
     conn = get_db()
     cursor = conn.cursor()
@@ -935,6 +1063,18 @@ def confirm_binding():
                 (viewer_id, patient_id)
             )
         conn.commit()
+
+        # 如果是 token 驱动的确认，则标记 token 已用
+        if token and token_row:
+            try:
+                if USE_CLOUD_DB:
+                    cursor.execute("UPDATE invite_tokens SET used=1, used_by=%s WHERE token=%s", (viewer_id, token))
+                else:
+                    cursor.execute("UPDATE invite_tokens SET used=1, used_by=? WHERE token=?", (viewer_id, token))
+                conn.commit()
+            except Exception:
+                pass
+
         print(f"✅ [DB] 绑定已确认: {viewer_id}({role}) → {patient_id}", flush=True)
         return jsonify({"code": 0, "message": "绑定已确认", "status": "active"})
     except Exception as e:
@@ -1073,6 +1213,18 @@ def generate_invite_token():
     conn = get_db()
     cursor = conn.cursor()
     try:
+        # 确保患者账户已存在，便于后续显示患者摘要和实现长期绑定
+        if USE_CLOUD_DB:
+            cursor.execute("SELECT id FROM users WHERE user_id=%s", (patient_id,))
+        else:
+            cursor.execute("SELECT id FROM users WHERE user_id=?", (patient_id,))
+        user = cursor.fetchone()
+        if not user:
+            if USE_CLOUD_DB:
+                cursor.execute("INSERT IGNORE INTO users (user_id) VALUES (%s)", (patient_id,))
+            else:
+                cursor.execute("INSERT OR IGNORE INTO users (user_id) VALUES (?)", (patient_id,))
+
         token = secrets.token_hex(24)  # 48字符 hex 字符串
 
         if USE_CLOUD_DB:
