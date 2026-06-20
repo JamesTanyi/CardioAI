@@ -1230,16 +1230,16 @@ def generate_invite_token():
         if USE_CLOUD_DB:
             cursor.execute("""
                 INSERT INTO invite_tokens (token, patient_id, role, expires_at)
-                VALUES (%s, %s, %s, DATE_ADD(NOW(), INTERVAL 24 HOUR))
+                VALUES (%s, %s, %s, DATE_ADD(NOW(), INTERVAL 7 DAY))
             """, (token, patient_id, role))
         else:
             cursor.execute("""
                 INSERT INTO invite_tokens (token, patient_id, role, expires_at)
-                VALUES (?, ?, ?, datetime('now', '+24 hours'))
+                VALUES (?, ?, ?, datetime('now', '+7 days'))
             """, (token, patient_id, role))
         conn.commit()
         print(f"🔑 [DB] 生成邀请Token: {token[:8]}... → {patient_id} ({role})", flush=True)
-        return jsonify({"code": 0, "data": {"token": token, "role": role, "expiresIn": "24小时"}})
+        return jsonify({"code": 0, "data": {"token": token, "role": role, "expiresIn": "7天"}})
     except Exception as e:
         return jsonify({"error": "生成失败", "detail": str(e)}), 500
     finally:
