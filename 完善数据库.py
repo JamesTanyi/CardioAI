@@ -212,6 +212,66 @@ def add_test_data():
     
     conn.close()
 
+def add_e2e_test_users():
+    """添加端到端测试脚本所需的用户"""
+    conn = get_db()
+    cursor = conn.cursor()
+    
+    users_to_add = [
+        ("E2E_PATIENT_张三_19581015", "E2E患者-张三", 65, "男"),
+        ("E2E_FAMILY_MEMBER", "E2E家属", 35, "女"),
+        ("E2E_DOCTOR_王医生", "E2E医生-王", 40, "男")
+    ]
+    
+    for user_id, name, age, gender in users_to_add:
+        cursor.execute("INSERT OR IGNORE INTO users (user_id, name, age, gender) VALUES (?, ?, ?, ?)",
+                       (user_id, name, age, gender))
+    
+    conn.commit()
+    conn.close()
+    print("✅ E2E 测试用户已添加/更新")
+
+def add_bulk_doctor_bindings(doctor_id="E2E_DOCTOR_ID", num_patients=150):
+    """为医生批量添加绑定患者，用于测试分页"""
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # 检查医生是否已存在
+    cursor.execute("SELECT COUNT(*) as count FROM doctor_bindings WHERE doctor_id=?", (doctor_id,))
+    if cursor.fetchone()['count'] >= num_patients:
+        print(f"🩺 医生 {doctor_id} 已绑定足够数量的患者，跳过批量数据添加")
+        conn.close()
+        return
+
+    print(f"📝 正在为医生 {doctor_id} 批量添加 {num_patients} 个绑定患者...")
+
+    # 1. 创建医生用户
+    cursor.execute("INSERT OR IGNORE INTO users (user_id, name, age, gender) VALUES (?, ?, ?, ?)",
+                   (doctor_id, "分页测试医生", 45, "女"))
+
+    # 2. 批量创建患者并绑定
+    for i in range(num_patients):
+        patient_id = f"BULK_PATIENT_{i}"
+        
+        # 创建患者用户
+        cursor.execute("INSERT OR IGNORE INTO users (user_id, name, age, gender) VALUES (?, ?, ?, ?)",
+                       (patient_id, f"患者{i}", 60 + i % 20, "男" if i % 2 == 0 else "女"))
+        
+        # 创建绑定关系
+        cursor.execute("""
+            INSERT OR IGNORE INTO doctor_bindings (doctor_id, patient_id, doctor_name, status)
+            VALUES (?, ?, ?, 'active')
+        """, (doctor_id, patient_id, "分页测试医生"))
+
+        # 3. 为部分患者添加测量数据
+        if i % 3 == 0:
+            cursor.execute("INSERT OR IGNORE INTO measurements (user_id, sbp, dbp, datetime) VALUES (?, ?, ?, ?)",
+                           (patient_id, 140 + i % 20, 90 + i % 10, datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
+
+    conn.commit()
+    conn.close()
+    print(f"✅ 批量添加完成")
+
 def show_stats():
     """显示数据库统计信息"""
     conn = get_db()
@@ -262,6 +322,12 @@ if __name__ == "__main__":
     # 2. 添加测试数据
     add_test_data()
     
+    # 2.1 添加 E2E 测试所需的用户
+    add_e2e_test_users()
+
+    # 2.1 添加用于分页测试的批量数据
+    add_bulk_doctor_bindings()
+
     # 3. 显示统计信息
     show_stats()
     

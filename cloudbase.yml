@@ -1,0 +1,19 @@
+# CloudBase 云托管配置文件
+# 文档：https://cloud.tencent.com/document/product/1243/80648
+
+appId: wxc5b1f8601518c8cb
+
+services:
+  cardioai-backend:
+    # 容器规格（可选，Serverless 容器按量计费）
+    # containerType: EXPONENTIAL_LARGE
+    # 镜像地址（首次部署时在 CloudBase 控制台构建，或提前推送）
+    image: ccr.ccs.tencentyun.com/YOUR_Namespace/cardioai-backend:latest
+    # 服务监听端口（与 Dockerfile EXPOSE 保持一致）
+    port: 80
+    # 初始化命令（可选，覆盖 Dockerfile CMD）
+    # entryCommand: []
+    # 环境变量
+    # envVariables:
+    #   FORCE_SQLITE: "true"
+    #   DB_PATH: "/workspace/data/bloodtrack.db"

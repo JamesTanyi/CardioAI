@@ -86,10 +86,7 @@ Page({
       // 3. 调用云托管
       // 注意：service 名称需要替换为您实际的服务名，如 'cardioai-wechat'
       const res = await wx.cloud.callContainer({
-        config: {
-          env: 'prod-...', // 您的云环境ID，如果不填则自动匹配
-        },
-        path: '/analyze',
+        path: '/api/analyze',
         header: {
           'X-WX-SERVICE': 'cardioai-wechat', // 您的服务名称
         },
