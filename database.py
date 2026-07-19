@@ -58,7 +58,6 @@ def init_app(app):
     if USE_CLOUD_DB:
         try:
             print("🔄 尝试连接腾讯云 MySQL 数据库...", flush=True)
-            # 尝试连接一次以验证配置
             conn = _get_cloud_db()
             conn.close()
             app.config['USE_CLOUD_DB'] = True
@@ -68,17 +67,13 @@ def init_app(app):
             app.config['USE_CLOUD_DB'] = False
 
     if not app.config['USE_CLOUD_DB']:
-        # 统一数据库路径，确保与 `完善数据库.py` 使用相同的文件
         DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bloodtrack.db")
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-        
         app.config['SQLITE_DB_PATH'] = DB_PATH
         print(f"⚠️ 使用本地 SQLite 数据库: {DB_PATH}", flush=True)
 
-    # 2. 注册 teardown 函数
     app.teardown_appcontext(close_db)
 
-    # 3. 初始化数据库
     with app.app_context():
         init_db()
 
@@ -102,23 +97,90 @@ def _get_sqlite_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+
+# ============================================================
+# ★ 新增：跨数据库兼容工具函数
+# 供各 views 文件（binding_views.py / measure_views.py 等）统一调用，
+# 避免每个文件各自判断 USE_CLOUD_DB、各自写占位符导致遗漏。
+# ============================================================
+
+def get_placeholder():
+    """根据当前数据库类型返回正确的 SQL 参数占位符。
+    MySQL(PyMySQL) 用 %s，SQLite 用 ?。
+    用法: ph = database.get_placeholder()
+          cursor.execute(f"SELECT * FROM users WHERE user_id = {ph}", (user_id,))
+    """
+    return '%s' if current_app.config['USE_CLOUD_DB'] else '?'
+
+def get_table_columns(cursor, table_name):
+    """跨数据库获取某张表的列名列表。
+    MySQL 用 SHOW COLUMNS，SQLite 用 PRAGMA table_info。
+    用法: columns = database.get_table_columns(cursor, 'family_bindings')
+    """
+    if current_app.config['USE_CLOUD_DB']:
+        cursor.execute(f"SHOW COLUMNS FROM {table_name}")
+        return [col['Field'] for col in cursor.fetchall()]
+    else:
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        return [col['name'] for col in cursor.fetchall()]
+
+
 def _init_cloud_db():
     conn = _get_cloud_db()
     with conn.cursor() as cursor:
-        # ... (所有 CREATE TABLE IF NOT EXISTS for MySQL 的语句) ...
-        # (此处省略与 app.py 中相同的建表语句)
-        cursor.execute("CREATE TABLE IF NOT EXISTS measurements (id INT AUTO_INCREMENT PRIMARY KEY, user_id VARCHAR(100) NOT NULL, sbp INT NOT NULL, dbp INT NOT NULL, hr INT DEFAULT 75, symptoms TEXT DEFAULT '[]', risk_level VARCHAR(20) DEFAULT 'normal', risk_text TEXT DEFAULT '', analysis TEXT DEFAULT '{}', datetime VARCHAR(50) NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_user_id (user_id), INDEX idx_datetime (datetime)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
-        cursor.execute("CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, user_id VARCHAR(100) UNIQUE NOT NULL, name VARCHAR(50) DEFAULT '', age INT DEFAULT 0, gender VARCHAR(10) DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
+        cursor.execute("SET sql_mode='';")
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS measurements (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id VARCHAR(100) NOT NULL,
+                sbp INT NOT NULL,
+                dbp INT NOT NULL,
+                hr INT DEFAULT 75,
+                symptoms TEXT,
+                risk_level VARCHAR(20) DEFAULT 'normal',
+                risk_text TEXT,
+                analysis TEXT,
+                datetime VARCHAR(50) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_user_id (user_id),
+                INDEX idx_datetime (datetime)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id VARCHAR(100) UNIQUE NOT NULL,
+                name VARCHAR(50) DEFAULT '',
+                age INT DEFAULT 0,
+                gender VARCHAR(10) DEFAULT '',
+                role VARCHAR(20) DEFAULT 'user',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        """)
+
         cursor.execute("CREATE TABLE IF NOT EXISTS family_bindings (id INT AUTO_INCREMENT PRIMARY KEY, family_id VARCHAR(100) NOT NULL, patient_id VARCHAR(100) NOT NULL, name VARCHAR(50) NOT NULL, status VARCHAR(20) DEFAULT 'active', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY unique_binding (family_id, patient_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
         cursor.execute("CREATE TABLE IF NOT EXISTS feedbacks (id INT AUTO_INCREMENT PRIMARY KEY, from_id VARCHAR(100) NOT NULL, from_role VARCHAR(20) NOT NULL, to_id VARCHAR(100) NOT NULL, content TEXT NOT NULL, is_read INT DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_to_id (to_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
         cursor.execute("CREATE TABLE IF NOT EXISTS doctor_bindings (id INT AUTO_INCREMENT PRIMARY KEY, doctor_id VARCHAR(100) NOT NULL, patient_id VARCHAR(100) NOT NULL, doctor_name VARCHAR(50) DEFAULT '', hospital VARCHAR(200) DEFAULT '', department VARCHAR(100) DEFAULT '', status VARCHAR(20) DEFAULT 'active', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY unique_dr_binding (doctor_id, patient_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
         cursor.execute("CREATE TABLE IF NOT EXISTS invite_codes (id INT AUTO_INCREMENT PRIMARY KEY, code VARCHAR(10) NOT NULL UNIQUE, patient_id VARCHAR(100) NOT NULL, used INT DEFAULT 0, used_by VARCHAR(100) DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, expires_at TIMESTAMP NULL, INDEX idx_code (code), INDEX idx_patient (patient_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
         cursor.execute("CREATE TABLE IF NOT EXISTS invite_tokens (id INT AUTO_INCREMENT PRIMARY KEY, token VARCHAR(64) NOT NULL UNIQUE, patient_id VARCHAR(100) NOT NULL, role VARCHAR(20) NOT NULL, used INT DEFAULT 0, used_by VARCHAR(100) DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, expires_at TIMESTAMP NULL, INDEX idx_token (token), INDEX idx_patient (patient_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
-        for tbl in ['family_bindings', 'doctor_bindings']:
+
+        # ★ 迁移兜底：如果表在这次修复之前就已经被创建过（缺少 role/status 列），
+        #   CREATE TABLE IF NOT EXISTS 不会补齐旧表结构，需要用 ALTER 显式补上。
+        #   列已存在会报错，用 try/except 忽略即可，不影响正常初始化。
+        migrations = [
+            ("users", "role VARCHAR(20) DEFAULT 'user'"),
+            ("family_bindings", "status VARCHAR(20) DEFAULT 'active'"),
+            ("doctor_bindings", "status VARCHAR(20) DEFAULT 'active'"),
+        ]
+        for tbl, col_def in migrations:
             try:
-                cursor.execute(f"ALTER TABLE {tbl} ADD COLUMN status VARCHAR(20) DEFAULT 'active'")
+                cursor.execute(f"ALTER TABLE {tbl} ADD COLUMN {col_def}")
+                print(f"🔧 [DB] 迁移补列成功: {tbl}.{col_def.split()[0]}", flush=True)
             except Exception:
-                pass
+                pass  # 列已存在，正常情况
+
     conn.commit()
     conn.close()
     print("✅ [DB] MySQL 初始化完成", flush=True)
@@ -126,15 +188,14 @@ def _init_cloud_db():
 def _init_sqlite_db():
     conn = _get_sqlite_db()
     with conn:
-        # ... (所有 CREATE TABLE IF NOT EXISTS for SQLite 的语句) ...
-        # (此处省略与 app.py 中相同的建表语句)
         conn.execute("CREATE TABLE IF NOT EXISTS measurements (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, sbp INTEGER NOT NULL, dbp INTEGER NOT NULL, hr INTEGER DEFAULT 75, symptoms TEXT DEFAULT '[]', risk_level TEXT DEFAULT 'normal', risk_text TEXT DEFAULT '', analysis TEXT DEFAULT '{}', datetime TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')))")
-        conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE NOT NULL, name TEXT DEFAULT '', age INTEGER DEFAULT 0, gender TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))")
+        conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE NOT NULL, name TEXT DEFAULT '', age INTEGER DEFAULT 0, gender TEXT DEFAULT '', role TEXT DEFAULT 'user', created_at TEXT DEFAULT (datetime('now')))")
         conn.execute("CREATE TABLE IF NOT EXISTS family_bindings (id INTEGER PRIMARY KEY AUTOINCREMENT, family_id TEXT NOT NULL, patient_id TEXT NOT NULL, name TEXT NOT NULL, status TEXT DEFAULT 'active', created_at TEXT DEFAULT (datetime('now')), UNIQUE(family_id, patient_id))")
         conn.execute("CREATE TABLE IF NOT EXISTS feedbacks (id INTEGER PRIMARY KEY AUTOINCREMENT, from_id TEXT NOT NULL, from_role TEXT NOT NULL, to_id TEXT NOT NULL, content TEXT NOT NULL, is_read INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')))")
         conn.execute("CREATE TABLE IF NOT EXISTS doctor_bindings (id INTEGER PRIMARY KEY AUTOINCREMENT, doctor_id TEXT NOT NULL, patient_id TEXT NOT NULL, doctor_name TEXT DEFAULT '', hospital TEXT DEFAULT '', department TEXT DEFAULT '', status TEXT DEFAULT 'active', created_at TEXT DEFAULT (datetime('now')), UNIQUE(doctor_id, patient_id))")
         conn.execute("CREATE TABLE IF NOT EXISTS invite_codes (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, patient_id TEXT NOT NULL, used INTEGER DEFAULT 0, used_by TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')), expires_at TEXT)")
         conn.execute("CREATE TABLE IF NOT EXISTS invite_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL UNIQUE, patient_id TEXT NOT NULL, role TEXT NOT NULL, used INTEGER DEFAULT 0, used_by TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')), expires_at TEXT)")
+
         for tbl in ['family_bindings', 'doctor_bindings']:
             try:
                 conn.execute(f"ALTER TABLE {tbl} ADD COLUMN status TEXT DEFAULT 'active'")

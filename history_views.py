@@ -1,110 +1,34 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-历史记录与分析相关的路由 (Views)
+历史记录相关的路由 (Views)
+
+★ 说明：原文件中的 `/analyze` 路由（history_bp.analyze）已删除。
+   该路由与 measure_views.py 里的 measure_bp.analyze_measurement()
+   同时挂在 /api 前缀下、同为 POST /api/analyze，注册顺序上
+   history_bp 先于 measure_bp 注册，导致 Flask/Werkzeug 实际上
+   一直把请求路由到这里的旧版本 analyze()，而不是新版本的
+   measure_bp.analyze_measurement()（真正负责存库+调用引擎的那个）。
+   经实测确认（POST /api/analyze 返回 "Missing 'current' record"，
+   即本文件旧版 analyze() 的错误文案）问题属实，故将其连同专属的
+   辅助函数（_normalize_record_time、_fetch_history_from_db）
+   和专属的 engine 导入一并移除，避免死代码和路由冲突。
+   本文件现在只保留 save_history 和 get_history 两个真正在用的接口。
 """
 
 import json
-from datetime import datetime
 from flask import Blueprint, request, jsonify, current_app
 
 import database
 from auth import require_binding_permission
 from services import save_measurement
 
-# 尝试导入分析引擎
-try:
-    from engine.cardiovascular_engine import CardiovascularEngine
-    EngineClass = CardiovascularEngine
-    EngineError = None
-except Exception as e:
-    print(f"❌ 警告: 无法导入 CardiovascularEngine: {e}", flush=True)
-    EngineClass = None
-    EngineError = str(e)
-
 # 创建一个名为 'history' 的蓝图
 history_bp = Blueprint('history', __name__)
 
 # ──────────────────────────────────────────────
-#  辅助函数 (从 app.py 迁移过来)
-# ──────────────────────────────────────────────
-
-def _normalize_record_time(rec):
-    if rec is None: return rec
-    rec = dict(rec)
-    ts = rec.get("datetime") or rec.get("timestamp") or rec.get("date")
-    if isinstance(ts, str):
-        for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y/%m/%d %H:%M"):
-            try:
-                rec["datetime"] = datetime.strptime(ts, fmt)
-                break
-            except ValueError: continue
-    if "datetime" not in rec or not isinstance(rec["datetime"], datetime):
-        rec["datetime"] = datetime.now()
-    if "sbp" in rec and "dbp" in rec:
-        rec["pp"] = rec.get("pp", rec["sbp"] - rec["dbp"])
-    elif "pp" not in rec: rec["pp"] = 40
-    if "hr" not in rec: rec["hr"] = 70
-    return rec
-
-def _fetch_history_from_db(user_id, limit=90):
-    conn = database.get_db()
-    cursor = conn.cursor()
-    try:
-        if current_app.config['USE_CLOUD_DB']:
-            cursor.execute("SELECT * FROM measurements WHERE user_id=%s ORDER BY datetime DESC LIMIT %s", (user_id, limit))
-        else:
-            cursor.execute("SELECT * FROM measurements WHERE user_id = ? ORDER BY datetime DESC LIMIT ?", (user_id, limit))
-        rows = cursor.fetchall()
-        results = []
-        for row in rows:
-            rec = dict(row) if isinstance(row, dict) else dict(row)
-            rec["symptoms"] = json.loads(rec.get("symptoms") or "[]")
-            rec["analysis"] = json.loads(rec.get("analysis") or "{}")
-            results.append({
-                "userId": rec.get("user_id"), "sbp": rec.get("sbp"), "dbp": rec.get("dbp"), "hr": rec.get("hr"),
-                "symptoms": rec.get("symptoms"), "riskLevel": rec.get("risk_level"), "riskText": rec.get("risk_text"),
-                "analysis": rec.get("analysis"), "datetime": rec.get("datetime")
-            })
-        return results
-    finally: pass
-
-# ──────────────────────────────────────────────
 #  路由定义
 # ──────────────────────────────────────────────
-
-@history_bp.route("/analyze", methods=["POST"])
-def analyze():
-    try:
-        data = request.get_json(force=True)
-    except Exception as e:
-        return jsonify({"error": "Invalid JSON", "detail": str(e)}), 400
-
-    print("📥 [Request] 收到 /analyze 请求", flush=True)
-    if not data: return jsonify({"error": "Empty request body"}), 400
-    if EngineClass is None: return jsonify({"code": -1, "error": "Engine load failed", "detail": EngineError}), 500
-
-    history = data.get("history", [])
-    current = data.get("current")
-    if current is None: return jsonify({"error": "Missing 'current' record"}), 400
-    if history is None: history = []
-    if not isinstance(history, list): return jsonify({"error": "'history' must be a list"}), 400
-
-    if not history:
-        fallback_user_id = current.get("userId") or current.get("user_id")
-        if fallback_user_id:
-            history = _fetch_history_from_db(fallback_user_id, limit=90)
-
-    history = [_normalize_record_time(r) for r in history]
-    current = _normalize_record_time(current)
-
-    try:
-        engine = EngineClass(history, current)
-        result = engine.run_all_diagnostics()
-        print(f"✅ [Engine] 风险等级: {result.get('risk_level')}", flush=True)
-        return jsonify({"code": 0, "data": result})
-    except Exception as e:
-        return jsonify({"error": "Engine execution failed", "detail": str(e)}), 500
 
 @history_bp.route("/save_history", methods=["POST"])
 def save_history():
@@ -148,9 +72,9 @@ def get_history():
             cursor.execute("SELECT * FROM measurements WHERE user_id = %s ORDER BY datetime DESC LIMIT %s", (user_id, limit))
         else:
             cursor.execute("SELECT * FROM measurements WHERE user_id = ? ORDER BY datetime DESC LIMIT ?", (user_id, limit))
-        
+
         rows = cursor.fetchall()
-        
+
         records = []
         for row in rows:
             rec = dict(row)

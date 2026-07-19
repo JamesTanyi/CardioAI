@@ -49,7 +49,8 @@ def init_database():
             name        TEXT DEFAULT '',
             age         INTEGER DEFAULT 0,
             gender      TEXT DEFAULT '',
-            created_at  TEXT DEFAULT (datetime('now'))
+            role        TEXT DEFAULT 'user',
+            created_at  TEXT DEFAULT (datetime('now')) 
         )
     """)
     print("✅ users 表已创建/存在")

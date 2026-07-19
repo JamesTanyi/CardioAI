@@ -30,3 +30,8 @@ miniprogram/pages/feedback/
 
 # 推送脚本（含 Token，切勿提交）
 push.ps1
+
+miniprogram/
+
+project.config.json
+project.miniapp.json
