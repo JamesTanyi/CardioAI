@@ -156,6 +156,7 @@ def _init_cloud_db():
                 age INT DEFAULT 0,
                 gender VARCHAR(10) DEFAULT '',
                 role VARCHAR(20) DEFAULT 'user',
+                birth_date VARCHAR(10) DEFAULT '',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
@@ -171,6 +172,7 @@ def _init_cloud_db():
         #   列已存在会报错，用 try/except 忽略即可，不影响正常初始化。
         migrations = [
             ("users", "role VARCHAR(20) DEFAULT 'user'"),
+            ("users", "birth_date VARCHAR(10) DEFAULT ''"),
             ("family_bindings", "status VARCHAR(20) DEFAULT 'active'"),
             ("doctor_bindings", "status VARCHAR(20) DEFAULT 'active'"),
         ]
@@ -189,7 +191,7 @@ def _init_sqlite_db():
     conn = _get_sqlite_db()
     with conn:
         conn.execute("CREATE TABLE IF NOT EXISTS measurements (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, sbp INTEGER NOT NULL, dbp INTEGER NOT NULL, hr INTEGER DEFAULT 75, symptoms TEXT DEFAULT '[]', risk_level TEXT DEFAULT 'normal', risk_text TEXT DEFAULT '', analysis TEXT DEFAULT '{}', datetime TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')))")
-        conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE NOT NULL, name TEXT DEFAULT '', age INTEGER DEFAULT 0, gender TEXT DEFAULT '', role TEXT DEFAULT 'user', created_at TEXT DEFAULT (datetime('now')))")
+        conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE NOT NULL, name TEXT DEFAULT '', age INTEGER DEFAULT 0, gender TEXT DEFAULT '', role TEXT DEFAULT 'user', birth_date TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')))")
         conn.execute("CREATE TABLE IF NOT EXISTS family_bindings (id INTEGER PRIMARY KEY AUTOINCREMENT, family_id TEXT NOT NULL, patient_id TEXT NOT NULL, name TEXT NOT NULL, status TEXT DEFAULT 'active', created_at TEXT DEFAULT (datetime('now')), UNIQUE(family_id, patient_id))")
         conn.execute("CREATE TABLE IF NOT EXISTS feedbacks (id INTEGER PRIMARY KEY AUTOINCREMENT, from_id TEXT NOT NULL, from_role TEXT NOT NULL, to_id TEXT NOT NULL, content TEXT NOT NULL, is_read INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')))")
         conn.execute("CREATE TABLE IF NOT EXISTS doctor_bindings (id INTEGER PRIMARY KEY AUTOINCREMENT, doctor_id TEXT NOT NULL, patient_id TEXT NOT NULL, doctor_name TEXT DEFAULT '', hospital TEXT DEFAULT '', department TEXT DEFAULT '', status TEXT DEFAULT 'active', created_at TEXT DEFAULT (datetime('now')), UNIQUE(doctor_id, patient_id))")
@@ -201,5 +203,9 @@ def _init_sqlite_db():
                 conn.execute(f"ALTER TABLE {tbl} ADD COLUMN status TEXT DEFAULT 'active'")
             except Exception:
                 pass
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN birth_date TEXT DEFAULT ''")
+        except Exception:
+            pass
     conn.close()
     print("✅ [DB] SQLite 初始化完成", flush=True)
