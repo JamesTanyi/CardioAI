@@ -84,10 +84,17 @@ def get_binding_status():
                 else:
                     p_name = "签约患者"  # 兜底：查不到患者资料时的老文案
 
-                doctor_patients.append({"patientId": p_id, "patientName": p_name})
+                # ★ 改：把风险等级也一起返回，供医生端列表展示状态徽章 + 排序依据
+                risk = _calculate_realtime_risk(conn, cursor, p_id)
+                doctor_patients.append({"patientId": p_id, "patientName": p_name, "riskLevel": risk})
                 # 如果医生监护的某位患者触发了高风险，医生的未读红点加1
-                if _calculate_realtime_risk(conn, cursor, p_id) in ["high", "critical"]:
+                if risk in ["high", "critical"]:
                     doctor_alert_count += 1
+
+            # ★ 新增：按病情严重程度排序，最需要关注的患者排在列表最前面（预警优先展示）
+            #   闭环理念：医生端不是"有病来找",而是持续追踪，列表顺序本身就是一种预警
+            risk_priority = {"critical": 4, "high": 3, "moderate": 2, "low": 1, "none": 0}
+            doctor_patients.sort(key=lambda p: risk_priority.get(p["riskLevel"], 0), reverse=True)
 
         return jsonify({
             "code": 0,
@@ -195,3 +202,151 @@ def register_user():
     except Exception as e:
         print(f"❌ [DB] 注册存盘发生坍塌: {str(e)}", flush=True)
         return jsonify({"code": 500, "msg": f"大脑数据库写入异常: {str(e)}"}), 500
+
+
+# ============================================================
+# ★ 新增：V10 邀请绑定主链路（永久链接模式）
+# 前端 intro.js 里调用的 cloudService.validateInvite / bindByInvite
+# 对应的后端实现，此前完全缺失，导致邀请绑定功能实际不可用。
+# 分享链接里携带的是患者的 user_id 本身（永久有效），不是一次性 token。
+# ============================================================
+
+@binding_bp.route('/validate_invite', methods=['POST'])
+def validate_invite():
+    """
+    邀请确认页打开时调用：校验链接里的 patientId 是否对应真实存在的患者，
+    并返回患者展示名 + 一份简单摘要，供家属/医生确认"这是不是我要绑定的人"。
+    """
+    data = request.json or {}
+    patient_id = data.get('patientId')
+    role = data.get('role')  # 'family' | 'doctor'，当前校验逻辑不区分角色，仅透传保留
+
+    if not patient_id:
+        return jsonify({"code": 1, "msg": "缺少 patientId"}), 400
+
+    conn = database.get_db()
+    cursor = conn.cursor()
+    ph = database.get_placeholder()
+
+    try:
+        cursor.execute(f"SELECT name, birth_date FROM users WHERE user_id = {ph}", (patient_id,))
+        patient = cursor.fetchone()
+
+        if not patient or not patient.get('name'):
+            return jsonify({"code": -1, "msg": "邀请链接无效或患者不存在"}), 404
+
+        bdate = patient.get('birth_date') or ''
+        patient_name = f"{patient['name']}({bdate})" if bdate else patient['name']
+
+        # 患者摘要：取最近一次测量记录，给确认页一个基本的"认人"参考
+        cursor.execute(
+            f"SELECT sbp, dbp, risk_level, datetime FROM measurements WHERE user_id = {ph} ORDER BY datetime DESC LIMIT 1",
+            (patient_id,)
+        )
+        latest = cursor.fetchone()
+        patient_summary = {
+            "name": patient_name,
+            "latestSbp": latest['sbp'] if latest else None,
+            "latestDbp": latest['dbp'] if latest else None,
+            "latestRiskLevel": latest['risk_level'] if latest else None,
+            "latestDatetime": latest['datetime'] if latest else None,
+        }
+
+        return jsonify({
+            "code": 0,
+            "msg": "success",
+            "data": {
+                "patientName": patient_name,
+                "patientSummary": patient_summary
+            }
+        })
+
+    except Exception as e:
+        print(f"❌ [validate_invite] 校验失败: {e}", flush=True)
+        return jsonify({"code": -1, "msg": f"校验失败: {str(e)}"}), 500
+
+
+@binding_bp.route('/bind_by_invite', methods=['POST'])
+def bind_by_invite():
+    """
+    用户点击"确认绑定"后调用：写入 family_bindings 或 doctor_bindings。
+    如果之前已经绑定过同一对 (viewer, patient)，则把状态刷新为 active，
+    不会因为 UNIQUE 约束报错而失败（幂等处理，允许重复点击/重新绑定）。
+    """
+    data = request.json or {}
+    patient_id = data.get('patientId')
+    role = data.get('role')
+    viewer_id = data.get('viewerId')
+    viewer_name = data.get('viewerName') or ''
+    hospital = data.get('hospital') or ''
+    department = data.get('department') or ''
+
+    if not patient_id or not role or not viewer_id:
+        return jsonify({"code": -1, "msg": "缺少必要参数"}), 400
+    if role not in ('family', 'doctor'):
+        return jsonify({"code": -1, "msg": "role 参数不合法"}), 400
+
+    conn = database.get_db()
+    cursor = conn.cursor()
+    ph = database.get_placeholder()
+
+    try:
+        # 再次确认患者存在（防止确认页打开后患者数据被删除的边界情况）
+        cursor.execute(f"SELECT name FROM users WHERE user_id = {ph}", (patient_id,))
+        patient = cursor.fetchone()
+        if not patient:
+            return jsonify({"code": -1, "msg": "患者不存在，绑定失败"}), 404
+        patient_name = patient.get('name') or ''
+
+        # 确保家属/医生本人也在 users 表里有记录，避免后续查询缺数据
+        cursor.execute(f"SELECT id FROM users WHERE user_id = {ph}", (viewer_id,))
+        viewer_exists = cursor.fetchone()
+        if not viewer_exists:
+            cursor.execute(
+                f"INSERT INTO users (user_id, name, role) VALUES ({ph}, {ph}, {ph})",
+                (viewer_id, viewer_name, role)
+            )
+
+        if role == 'family':
+            cursor.execute(
+                f"SELECT id FROM family_bindings WHERE family_id={ph} AND patient_id={ph}",
+                (viewer_id, patient_id)
+            )
+            existing = cursor.fetchone()
+            if existing:
+                cursor.execute(
+                    f"UPDATE family_bindings SET status='active', name={ph} WHERE family_id={ph} AND patient_id={ph}",
+                    (patient_name, viewer_id, patient_id)
+                )
+            else:
+                cursor.execute(
+                    f"INSERT INTO family_bindings (family_id, patient_id, name, status) VALUES ({ph}, {ph}, {ph}, 'active')",
+                    (viewer_id, patient_id, patient_name)
+                )
+        else:  # doctor
+            cursor.execute(
+                f"SELECT id FROM doctor_bindings WHERE doctor_id={ph} AND patient_id={ph}",
+                (viewer_id, patient_id)
+            )
+            existing = cursor.fetchone()
+            if existing:
+                cursor.execute(
+                    f"""UPDATE doctor_bindings SET status='active', doctor_name={ph}, hospital={ph}, department={ph}
+                        WHERE doctor_id={ph} AND patient_id={ph}""",
+                    (viewer_name, hospital, department, viewer_id, patient_id)
+                )
+            else:
+                cursor.execute(
+                    f"""INSERT INTO doctor_bindings (doctor_id, patient_id, doctor_name, hospital, department, status)
+                        VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, 'active')""",
+                    (viewer_id, patient_id, viewer_name, hospital, department)
+                )
+
+        conn.commit()
+        print(f"🟢 [DB] 绑定成功: {role} {viewer_id} -> patient {patient_id}", flush=True)
+
+        return jsonify({"code": 0, "msg": "绑定成功"})
+
+    except Exception as e:
+        print(f"❌ [bind_by_invite] 绑定失败: {e}", flush=True)
+        return jsonify({"code": -1, "msg": f"绑定失败: {str(e)}"}), 500
