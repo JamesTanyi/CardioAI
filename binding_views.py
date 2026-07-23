@@ -350,3 +350,249 @@ def bind_by_invite():
     except Exception as e:
         print(f"❌ [bind_by_invite] 绑定失败: {e}", flush=True)
         return jsonify({"code": -1, "msg": f"绑定失败: {str(e)}"}), 500
+
+
+# ============================================================
+# ★ 新增：医生端患者列表分页搜索（幽灵接口第二批）
+# 前端 doctor/dashboard/dashboard.js 的 loadBoundPatients() 一直在调用这个接口，
+# 之前后端完全没实现，请求会静默失败。主体患者列表走 get_binding_status 不受影响，
+# 这个接口只补齐"下拉框内按姓名搜索 + 翻页"这个辅助功能。
+# ============================================================
+
+@binding_bp.route('/get_doctor_patients', methods=['GET'])
+def get_doctor_patients():
+    """
+    医生端患者列表：支持按姓名搜索、按风险等级降序排序、分页。
+    患者数量级别不大，这里先查出该医生的全部绑定患者，
+    在内存里完成排序/搜索/分页，不做数据库层面的分页优化。
+    """
+    doctor_id = request.args.get('doctorId')
+    if not doctor_id:
+        return jsonify({"code": 1, "msg": "缺少 doctorId"}), 400
+
+    try:
+        page = int(request.args.get('page', 1))
+        page_size = int(request.args.get('pageSize', 20))
+    except ValueError:
+        page, page_size = 1, 20
+    keyword = (request.args.get('keyword') or '').strip()
+
+    conn = database.get_db()
+    cursor = conn.cursor()
+    ph = database.get_placeholder()
+
+    try:
+        cursor.execute(f"SELECT * FROM doctor_bindings WHERE doctor_id = {ph}", (doctor_id,))
+        doctor_bonds = cursor.fetchall()
+
+        all_patients = []
+        for bond in doctor_bonds:
+            bond = dict(bond)  # ★ 统一转 dict：sqlite3.Row 不支持 .get()，MySQL 的 dict 结果 dict() 是幂等操作，两边都安全
+            p_id = bond['patient_id']
+            cursor.execute(f"SELECT name, birth_date FROM users WHERE user_id = {ph}", (p_id,))
+            p_user = cursor.fetchone()
+            p_user = dict(p_user) if p_user else None
+
+            raw_name = p_user['name'] if (p_user and p_user.get('name')) else ''
+            # ★ 关键词搜索只匹配姓名，不匹配内部 user_id
+            #   （患者内部ID不该作为医生可用的查找方式，姓名同名概率低，够用）
+            if keyword and keyword not in raw_name:
+                continue
+
+            bdate = p_user.get('birth_date') if p_user else ''
+            p_name = f"{raw_name}({bdate})" if (raw_name and bdate) else (raw_name or '签约患者')
+
+            risk = _calculate_realtime_risk(conn, cursor, p_id)
+            all_patients.append({
+                "patientId": p_id,
+                "patientName": p_name,
+                "riskLevel": risk,
+                "doctorName": bond.get('doctor_name') or '',
+                "hospital": bond.get('hospital') or '',
+                "department": bond.get('department') or ''
+            })
+
+        # ★ 按风险等级降序排序，和 get_binding_status 保持一致的优先级
+        risk_priority = {"critical": 4, "high": 3, "moderate": 2, "low": 1, "none": 0}
+        all_patients.sort(key=lambda p: risk_priority.get(p["riskLevel"], 0), reverse=True)
+
+        total = len(all_patients)
+        start = (page - 1) * page_size
+        end = start + page_size
+        page_data = all_patients[start:end]
+        has_more = end < total
+
+        return jsonify({
+            "code": 0,
+            "msg": "success",
+            "data": page_data,
+            "total": total,
+            "hasMore": has_more
+        })
+
+    except Exception as e:
+        print(f"❌ [get_doctor_patients] 查询失败: {e}", flush=True)
+        return jsonify({"code": -1, "msg": f"查询失败: {str(e)}"}), 500
+
+
+# ============================================================
+# ★ 新增：历史数据批量上传（幽灵接口第二批，最后一个）
+# ★ 改：原本设计走 wx.uploadFile 直连裸域名（不带 /api 前缀），实测在本项目
+#   环境下从未跑通（404）。现改为前端把文件读成 base64、通过已验证可靠的
+#   wx.cloud.callContainer 以普通 JSON 方式发送，因此这里和其他接口一样
+#   走标准 /api 前缀，注册在 binding_bp 蓝图下，不再需要 app.py 里的特例路由。
+#
+# 支持 .xlsx/.xls（openpyxl 解析）和 .csv（Python 内置 csv 模块解析）。
+# 必填列：日期、时间、收缩压、舒张压；心率可为空（默认75）。
+# 脉压差由后端自动计算，不读取任何"脉压差"列。不解析"备注"列。
+# 不触发分析引擎，纯批量存库——患者之后正常测量提交时，
+# /api/analyze 会自动把全部历史（含这批导入的）一起纳入稳态计算。
+# ============================================================
+
+def _process_import_rows(rows, user_id, cursor, ph):
+    """
+    统一处理逻辑：rows 是一个可迭代对象，每个元素是 dict（列名 -> 值），
+    xlsx 和 csv 两条解析路径最终都转换成这种统一格式后传进来。
+    返回 (imported, skipped)。
+    """
+    imported = 0
+    skipped = 0
+
+    for row in rows:
+        date_val = (row.get('日期') or '').strip() if row.get('日期') else ''
+        time_val = (row.get('时间') or '').strip() if row.get('时间') else ''
+        sbp_val = (row.get('收缩压') or '').strip() if row.get('收缩压') else ''
+        dbp_val = (row.get('舒张压') or '').strip() if row.get('舒张压') else ''
+        hr_val = (row.get('心率') or '').strip() if row.get('心率') else ''
+
+        if not date_val or not time_val or not sbp_val or not dbp_val:
+            skipped += 1
+            continue
+
+        try:
+            sbp = int(float(sbp_val))
+            dbp = int(float(dbp_val))
+        except (ValueError, TypeError):
+            skipped += 1
+            continue
+
+        try:
+            hr = int(float(hr_val)) if hr_val else 75
+        except (ValueError, TypeError):
+            hr = 75
+
+        datetime_str = f"{date_val} {time_val}"
+
+        cursor.execute(f"""
+            INSERT INTO measurements (user_id, sbp, dbp, hr, symptoms, risk_level, risk_text, analysis, datetime)
+            VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+        """, (
+            user_id, sbp, dbp, hr,
+            json.dumps([], ensure_ascii=False),
+            'normal',
+            '',
+            json.dumps({}, ensure_ascii=False),
+            datetime_str
+        ))
+        imported += 1
+
+    return imported, skipped
+
+
+@binding_bp.route('/upload_excel', methods=['POST'])
+def upload_excel():
+    """
+    接收前端以 base64 编码传来的 Excel/CSV 文件内容，解析后批量导入 measurements 表。
+    请求体（JSON）: { fileName, userId, fileBase64 }
+    """
+    import base64
+    import io
+
+    data = request.json or {}
+    file_name = (data.get('fileName') or '').lower()
+    user_id = data.get('userId') or data.get('user_id')
+    file_base64 = data.get('fileBase64')
+
+    if not file_base64:
+        return jsonify({"code": -1, "msg": "未收到文件内容"}), 400
+    if not user_id:
+        return jsonify({"code": -1, "msg": "缺少 userId，无法确定归属患者"}), 400
+
+    is_csv = file_name.endswith('.csv')
+    is_excel = file_name.endswith('.xlsx') or file_name.endswith('.xls')
+    if not is_csv and not is_excel:
+        return jsonify({"code": -1, "msg": "仅支持 .xlsx/.xls/.csv 文件"}), 400
+
+    try:
+        file_bytes = base64.b64decode(file_base64)
+    except Exception as e:
+        return jsonify({"code": -1, "msg": f"文件内容解码失败: {str(e)}"}), 400
+
+    rows = []
+    required_cols = ["日期", "时间", "收缩压", "舒张压"]
+
+    try:
+        if is_excel:
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+            sheet = wb.active
+
+            header_row = next(sheet.iter_rows(min_row=1, max_row=1, values_only=True), None)
+            if not header_row:
+                return jsonify({"code": -1, "msg": "文件为空或缺少表头"}), 400
+
+            headers = [str(h).strip() if h else '' for h in header_row]
+            missing_cols = [c for c in required_cols if c not in headers]
+            if missing_cols:
+                return jsonify({"code": -1, "msg": f"表头缺少必填列: {', '.join(missing_cols)}"}), 400
+
+            for data_row in sheet.iter_rows(min_row=2, values_only=True):
+                row_dict = {}
+                for idx, col_name in enumerate(headers):
+                    if not col_name or idx >= len(data_row):
+                        continue
+                    val = data_row[idx]
+                    row_dict[col_name] = str(val).strip() if val is not None else ''
+                rows.append(row_dict)
+
+        else:  # csv
+            import csv
+            try:
+                text = file_bytes.decode('utf-8-sig')
+            except UnicodeDecodeError:
+                text = file_bytes.decode('gbk', errors='ignore')
+
+            reader = csv.DictReader(io.StringIO(text))
+            if not reader.fieldnames:
+                return jsonify({"code": -1, "msg": "文件为空或缺少表头"}), 400
+
+            headers = [h.strip() if h else '' for h in reader.fieldnames]
+            missing_cols = [c for c in required_cols if c not in headers]
+            if missing_cols:
+                return jsonify({"code": -1, "msg": f"表头缺少必填列: {', '.join(missing_cols)}"}), 400
+
+            for raw_row in reader:
+                row_dict = {(k.strip() if k else k): (v.strip() if v else v) for k, v in raw_row.items()}
+                rows.append(row_dict)
+
+    except Exception as e:
+        return jsonify({"code": -1, "msg": f"文件解析失败，请确认文件格式正确: {str(e)}"}), 400
+
+    conn = database.get_db()
+    cursor = conn.cursor()
+    ph = database.get_placeholder()
+
+    try:
+        imported, skipped = _process_import_rows(rows, user_id, cursor, ph)
+        conn.commit()
+        print(f"🟢 [DB] 批量导入完成: user={user_id}, 成功{imported}条, 跳过{skipped}条", flush=True)
+
+        return jsonify({
+            "code": 0,
+            "msg": "导入完成",
+            "data": {"imported": imported, "skipped": skipped}
+        })
+
+    except Exception as e:
+        print(f"❌ [upload_excel] 导入失败: {e}", flush=True)
+        return jsonify({"code": -1, "msg": f"导入失败: {str(e)}"}), 500

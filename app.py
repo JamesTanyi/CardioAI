@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 # app.py
+# -*- coding: utf-8 -*-
+# app.py
 import os
 from flask import Flask, jsonify
 import database
