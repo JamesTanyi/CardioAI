@@ -75,18 +75,32 @@ def get_binding_status():
             has_doctor_binding = True
             for bond in doctor_bonds:
                 p_id = bond['patient_id']
-                # ★ 改：同时查 birth_date，拼成展示名
-                cursor.execute(f"SELECT name, birth_date FROM users WHERE user_id = {ph}", (p_id,))
+                # ★ 改：同时查 age、gender——患者列表页需要姓名/年龄/性别分开展示，
+                #   不能只用拼好的 patientName（那是"姓名(出生日期)"格式，给仪表盘头部用的）
+                cursor.execute(f"SELECT name, birth_date, age, gender FROM users WHERE user_id = {ph}", (p_id,))
                 p_user = cursor.fetchone()
                 if p_user and p_user.get('name'):
                     bdate = p_user.get('birth_date') or ''
                     p_name = f"{p_user['name']}({bdate})" if bdate else p_user['name']
+                    raw_name = p_user['name']
+                    age = p_user.get('age')
+                    gender = p_user.get('gender') or ''
                 else:
                     p_name = "签约患者"  # 兜底：查不到患者资料时的老文案
+                    raw_name = "签约患者"
+                    age = None
+                    gender = ''
 
                 # ★ 改：把风险等级也一起返回，供医生端列表展示状态徽章 + 排序依据
                 risk = _calculate_realtime_risk(conn, cursor, p_id)
-                doctor_patients.append({"patientId": p_id, "patientName": p_name, "riskLevel": risk})
+                doctor_patients.append({
+                    "patientId": p_id,
+                    "patientName": p_name,
+                    "name": raw_name,
+                    "age": age,
+                    "gender": gender,
+                    "riskLevel": risk
+                })
                 # 如果医生监护的某位患者触发了高风险，医生的未读红点加1
                 if risk in ["high", "critical"]:
                     doctor_alert_count += 1
@@ -389,7 +403,7 @@ def get_doctor_patients():
         for bond in doctor_bonds:
             bond = dict(bond)  # ★ 统一转 dict：sqlite3.Row 不支持 .get()，MySQL 的 dict 结果 dict() 是幂等操作，两边都安全
             p_id = bond['patient_id']
-            cursor.execute(f"SELECT name, birth_date FROM users WHERE user_id = {ph}", (p_id,))
+            cursor.execute(f"SELECT name, birth_date, age, gender FROM users WHERE user_id = {ph}", (p_id,))
             p_user = cursor.fetchone()
             p_user = dict(p_user) if p_user else None
 
@@ -401,11 +415,16 @@ def get_doctor_patients():
 
             bdate = p_user.get('birth_date') if p_user else ''
             p_name = f"{raw_name}({bdate})" if (raw_name and bdate) else (raw_name or '签约患者')
+            age = p_user.get('age') if p_user else None
+            gender = (p_user.get('gender') or '') if p_user else ''
 
             risk = _calculate_realtime_risk(conn, cursor, p_id)
             all_patients.append({
                 "patientId": p_id,
                 "patientName": p_name,
+                "name": raw_name or '签约患者',
+                "age": age,
+                "gender": gender,
                 "riskLevel": risk,
                 "doctorName": bond.get('doctor_name') or '',
                 "hospital": bond.get('hospital') or '',
