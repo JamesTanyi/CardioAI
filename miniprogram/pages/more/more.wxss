@@ -1,0 +1,171 @@
+.container {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #e8f5e9 0%, #f6f7f9 100%);
+  padding: 0 0 40rpx 0;
+}
+
+/* 顶部标题区 */
+.header {
+  background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+  padding: 60rpx 40rpx 80rpx 40rpx;
+  border-radius: 0 0 40rpx 40rpx;
+}
+
+.title {
+  display: block;
+  font-size: 48rpx;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 10rpx;
+}
+
+.subtitle {
+  display: block;
+  font-size: 28rpx;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+/* 功能列表 */
+.feature-list {
+  margin: -40rpx 30rpx 0 30rpx;
+  position: relative;
+  z-index: 10;
+}
+
+/* 功能卡片 */
+.feature-card {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border-radius: 20rpx;
+  padding: 36rpx 30rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  transition: all 0.3s ease;
+}
+
+.feature-card:active {
+  transform: scale(0.98);
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+/* 图标 */
+.feature-icon {
+  font-size: 48rpx;
+  margin-right: 24rpx;
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f9f4;
+  border-radius: 16rpx;
+}
+
+.feature-icon-wrap {
+  position: relative;
+  margin-right: 24rpx;
+  width: 80rpx;
+  height: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f9f4;
+  border-radius: 16rpx;
+}
+
+.feature-icon-wrap .feature-icon {
+  margin-right: 0;
+  width: auto;
+  height: auto;
+  background: transparent;
+}
+
+/* 未读消息角标 */
+.badge {
+  position: absolute;
+  top: -8rpx;
+  right: -8rpx;
+  background: #ff4d4f;
+  color: #ffffff;
+  font-size: 20rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  line-height: 32rpx;
+  text-align: center;
+  border-radius: 16rpx;
+  padding: 0 8rpx;
+  font-weight: 600;
+}
+
+/* 文字信息 */
+.feature-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.feature-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 6rpx;
+}
+
+.feature-desc {
+  font-size: 24rpx;
+  color: #888888;
+}
+
+/* 右箭头 */
+.feature-arrow {
+  font-size: 40rpx;
+  color: #cccccc;
+  font-weight: 300;
+}
+
+/* ── 预警角标（红点） ── */
+.feature-alert-dot {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 12rpx;
+}
+.feature-alert-dot.high {
+  background: #F44336;
+  animation: dot-pulse 1.5s ease-in-out infinite;
+}
+.feature-alert-dot.moderate {
+  background: #FF9800;
+}
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.4); }
+}
+
+/* 高危卡片背景 */
+.feature-card.high {
+  background: #FFF5F5;
+  border-left: 6rpx solid #F44336;
+}
+.feature-card.moderate {
+  background: #FFFDE7;
+  border-left: 6rpx solid #FF9800;
+}
+
+/* 数字角标 */
+.feature-badge {
+  background: #F44336;
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 700;
+  min-width: 36rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  text-align: center;
+  border-radius: 18rpx;
+  padding: 0 10rpx;
+  flex-shrink: 0;
+  margin-right: 12rpx;
+}

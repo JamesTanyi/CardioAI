@@ -1,0 +1,119 @@
+/* pages/onboarding/intro/intro.wxss */
+page {
+  background-color: #fff;
+  height: 100vh;
+  font-family: "Times New Roman", serif, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Helvetica, sans-serif;
+}
+
+/* ── 🚀 继承原有精美主体容器 ── */
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 100vh;
+  padding: 16rpx 40rpx;
+  box-sizing: border-box;
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 0;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.logo-area {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+
+.logo-icon {
+  font-size: 220rpx;
+  margin-bottom: 10rpx;
+}
+
+.app-name {
+  font-size: 96rpx;
+  font-weight: 900;
+  color: #333;
+  letter-spacing: 4rpx;
+}
+
+.slogan {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #555;
+  margin-bottom: 30rpx;
+  letter-spacing: 4rpx;
+}
+
+/* ── 原有核心价值卡片（已清洗重叠项） ── */
+.core-value {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 10rpx 0 20rpx;
+  padding: 18rpx 36rpx;
+  background: #F0FFF6;
+  border-radius: 20rpx;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.core-value-icon {
+  font-size: 56rpx;
+  margin-bottom: 10rpx;
+}
+
+.core-value-line {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #444;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.core-value-line.highlight {
+  font-size: 34rpx;
+  color: #07C160;
+  font-weight: 900;
+}
+
+/* ── 原有特性卡片列表 ── */
+.feature-list {
+  width: 100%;
+}
+
+.feature-item {
+  font-size: 36rpx;
+  color: #333;
+  margin-bottom: 18rpx;
+  padding: 22rpx;
+  background: #F8F9FB;
+  border-radius: 16rpx;
+  text-align: center;
+  font-weight: 800;
+  letter-spacing: 2rpx;
+}
+
+/* ── 原有底部高亮大激活按钮 ── */
+.btn-start {
+  background: #07C160;
+  color: #fff;
+  border-radius: 50rpx;
+  font-size: 48rpx;
+  font-weight: bold;
+  padding: 24rpx 0;
+  width: 100%;
+  margin-bottom: 60rpx;
+  box-shadow: 0 10rpx 20rpx rgba(7, 193, 96, 0.25);
+}
+
+.btn-start:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}

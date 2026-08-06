@@ -1,0 +1,49 @@
+<view class="pl-container">
+  <view class="pl-header">
+    <text class="pl-title">我的患者</text>
+    <text class="pl-count" wx:if="{{patients.length > 0}}">共 {{patients.length}} 人</text>
+  </view>
+
+  <view class="pl-loading" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+
+  <view class="pl-empty" wx:if="{{!loading && patients.length === 0}}">
+    <text>暂无绑定患者，请让患者通过「绑定医生」分享邀请</text>
+  </view>
+
+  <view class="pl-list" wx:if="{{!loading && patients.length > 0}}">
+    <!-- 表头 -->
+    <view class="pl-row pl-row-header">
+      <text class="pl-col pl-col-index">序号</text>
+      <text class="pl-col pl-col-name">姓名</text>
+      <text class="pl-col pl-col-age">年龄</text>
+      <text class="pl-col pl-col-gender">性别</text>
+      <text class="pl-col pl-col-status">状态</text>
+      <view class="pl-col pl-col-msg pl-col-msg-header">
+        <text>留言</text>
+        <view class="pl-msg-count pl-msg-count-header" wx:if="{{unreadTotalCount > 0}}">{{unreadTotalCount > 99 ? '99+' : unreadTotalCount}}</view>
+      </view>
+    </view>
+
+    <!-- 数据行：只展示后端已经算好、排好序的数据，不做任何前端判断 -->
+    <block wx:for="{{patients}}" wx:key="patientId">
+      <view class="pl-row" bindtap="onSelectPatient" data-patient-id="{{item.patientId}}" data-patient-name="{{item.name}}">
+        <text class="pl-col pl-col-index">{{index + 1}}</text>
+        <text class="pl-col pl-col-name pl-name-link">{{item.name}}</text>
+        <text class="pl-col pl-col-age">{{item.age || '--'}}</text>
+        <text class="pl-col pl-col-gender">{{item.gender === 'male' ? '男' : (item.gender === 'female' ? '女' : '--')}}</text>
+        <view class="pl-col pl-col-status">
+          <view class="pl-status-dot {{item.riskLevel}}"></view>
+        </view>
+        <!-- ★ 改：数字角标旁边加上"留言"文字，避免孤零零一个数字脱离上下文看不明白 -->
+        <view class="pl-col pl-col-msg">
+          <view class="pl-msg-badge" wx:if="{{item.unreadFeedbackCount > 0}}">
+            <text class="pl-msg-label">留言</text>
+            <text class="pl-msg-count">{{item.unreadFeedbackCount > 99 ? '99+' : item.unreadFeedbackCount}}</text>
+          </view>
+        </view>
+      </view>
+    </block>
+  </view>
+</view>

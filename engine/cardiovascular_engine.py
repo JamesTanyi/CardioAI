@@ -1,3 +1,4 @@
+import os
 from typing import List, Dict, Any
 from .risk_level import assess_risk_bundle
 from .emergency import analyze_emergency
@@ -13,6 +14,35 @@ try:
 except ImportError:
     def generate_language_blocks(*args): return {}
 
+# 尝试导入图表模块（依赖 matplotlib，requirements.txt 需要补上这个依赖）
+try:
+    from .plots_risk import plot_risk_scores
+    from .plots_symptoms import plot_symptom_timeline
+    CHARTS_AVAILABLE = True
+except ImportError:
+    CHARTS_AVAILABLE = False
+    def plot_risk_scores(*args, **kwargs): return None
+    def plot_symptom_timeline(*args, **kwargs): return None
+
+# 图表输出目录：默认放在 Flask 默认的 static 目录下（<项目根>/static/reports），
+# Flask 会自动把 static/ 暴露在 /static/ 路径下，无需额外加路由。
+# 如果实际部署环境不是这种"和 app.py 同级的 static 目录 + 同源访问"结构，
+# 请通过环境变量 CHART_OUTPUT_DIR / PUBLIC_BASE_URL 调整。
+CHART_OUTPUT_DIR = os.environ.get(
+    "CHART_OUTPUT_DIR",
+    os.path.join(os.getcwd(), "static", "reports")
+)
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "")  # 例如 https://your-domain.com，留空则用相对路径
+
+
+def _to_public_url(local_path):
+    """把本地文件路径转换成医生端报告里可以直接 <img src> 的 URL"""
+    if not local_path:
+        return None
+    filename = os.path.basename(local_path)
+    return f"{PUBLIC_BASE_URL}/static/reports/{filename}"
+
+
 class CardiovascularEngine:
     def __init__(self, history: List[Dict], current: Dict):
         """
@@ -22,7 +52,7 @@ class CardiovascularEngine:
         """
         self.history = history
         self.current = current
-        
+
         # 合并记录并按时间排序，用于趋势分析
         self.all_records = history + [current]
         self.all_records.sort(key=lambda x: x["datetime"])
@@ -43,49 +73,77 @@ class CardiovascularEngine:
             print("      ... 数据不足，跳过稳态分析。", flush=True)
         else:
             events_by_segment = steady_data.get("events_by_segment", [])
-            print(f"      ... 稳态分段: {len(steady_data.get('segments', []))} 段", flush=True)
-        
+            print(f"      ... 稳态分段: {len(steady_data.get('segments', []))} 段, "
+                  f"多窗口: {list(steady_data.get('windows', {}).keys())}", flush=True)
+
         # 1.2 模式识别 (Pattern)
         print("   -> 正在执行: 模式识别 (Pattern)...", flush=True)
         patterns = analyze_patterns(records)
         print(f"      ... 模式: Dip={patterns.get('nocturnal_dip')}, Surge={patterns.get('morning_surge')}", flush=True)
-        
+
         # 2. 核心风险与状态评估
         # 2.1 风险评估 (Risk Level)
         print("   -> 正在执行: 风险评估 (Risk Level)...", flush=True)
         risk_bundle = assess_risk_bundle(records, steady_data, events_by_segment, patterns)
         print(f"      ... 风险评估: Level={risk_bundle.get('acute_risk_level')}, Plaque={risk_bundle.get('plaque_risk', {}).get('level')}", flush=True)
-        
+
         # 2.2 结构变异 (Structure Shift)
         print("   -> 正在执行: 结构变异 (Structure Shift)...", flush=True)
         structure_shift = analyze_structure_shift(steady_data)
         print(f"      ... 结构变异: Level={structure_shift.get('shift_level')}", flush=True)
-        
+
         # 2.3 急性动力学 (Emergency)
         print("   -> 正在执行: 急性动力学 (Emergency)...", flush=True)
         emergency_info = analyze_emergency(records, steady_data)
         print(f"      ... 急性事件: {emergency_info.get('emergency')}", flush=True)
-        
+
         # 2.4 生命周期状态 (Lifecycle)
         print("   -> 正在执行: 生命周期状态 (Lifecycle)...", flush=True)
         lifecycle_state = calculate_lifecycle_state(records)
         print(f"      ... 生命周期: Phase={lifecycle_state.get('ux_phase')}, Days={lifecycle_state.get('total_days')}", flush=True)
-        
+
         # 3. 结果整合与输出
         # 3.1 生成时间轴 (Timeline)
         print("   -> 正在执行: 时间轴生成 (Timeline)...", flush=True)
         timeline = build_timeline(
-            records, 
-            steady_data, 
-            emergency_info, 
-            events_by_segment, 
+            records,
+            steady_data,
+            emergency_info,
+            events_by_segment,
             risk_bundle
         )
         print(f"      ... 时间轴事件: {len(timeline)} 个", flush=True)
-        
-        # 3.2 生成自然语言报告 (Language)
+
+        # 3.2 生成图表（仅供医生端使用）
+        print("   -> 正在执行: 图表生成 (Charts, 医生端专用)...", flush=True)
+        risk_chart_url = None
+        symptom_chart_url = None
+        if CHARTS_AVAILABLE:
+            try:
+                risk_chart_path = plot_risk_scores(risk_bundle, CHART_OUTPUT_DIR)
+                risk_chart_url = _to_public_url(risk_chart_path)
+            except Exception as e:
+                print(f"      ... 风险评分图生成失败: {e}", flush=True)
+            try:
+                symptom_chart_path = plot_symptom_timeline(records, events_by_segment, CHART_OUTPUT_DIR)
+                symptom_chart_url = _to_public_url(symptom_chart_path)
+            except Exception as e:
+                print(f"      ... 症状时间线图生成失败: {e}", flush=True)
+        else:
+            print("      ... matplotlib 未安装，跳过图表生成（需要在 requirements.txt 补上 matplotlib）", flush=True)
+        print(f"      ... 风险图: {risk_chart_url}, 症状图: {symptom_chart_url}", flush=True)
+
+        # 3.3 生成自然语言报告 (Language)
         print("   -> 正在执行: 自然语言生成 (Language)...", flush=True)
-        language_blocks = generate_language_blocks(records, steady_data, risk_bundle, patterns)
+        # 注意：这里过去把 patterns 直接当 figure_paths 传进去是个 bug——
+        # language.py 的医生报告需要的是 {"patterns": {...}, "risk_scores_url": ..., "symptom_timeline_url": ...}
+        # 这样的结构，而不是 patterns 本身。
+        figure_paths = {
+            "patterns": patterns,
+            "risk_scores_url": risk_chart_url,
+            "symptom_timeline_url": symptom_chart_url,
+        }
+        language_blocks = generate_language_blocks(records, steady_data, risk_bundle, figure_paths)
         print(f"      ... 已生成 User/Family/Doctor 报告", flush=True)
 
         # 9. 构造最终返回结果
@@ -100,7 +158,7 @@ class CardiovascularEngine:
                 "structure": structure_shift,
                 "lifecycle": lifecycle_state,
                 "timeline": timeline,
-                "reports": language_blocks # 包含 user, family, doctor 报告
+                "reports": language_blocks  # 包含 user, family, doctor 报告
             },
             # 为前端展示增加当前测量值
             "current_measurement": {

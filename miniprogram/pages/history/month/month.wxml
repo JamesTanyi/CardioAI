@@ -1,0 +1,107 @@
+<!-- pages/history/month/month.wxml -->
+<view class="container">
+
+  <!-- 图表区域 -->
+  <view class="chart-section">
+    <view class="chart-header">
+      <view>
+        <text class="chart-title">最近60天心血管动力趋势</text>
+        <text class="chart-sub">基于个人稳态的动态变化监测</text>
+      </view>
+      <view class="legend">
+        <view class="legend-item">
+          <view class="line-dot" style="background:#FF6B6B"></view>
+          <text>收缩压</text>
+        </view>
+        <view class="legend-item">
+          <view class="line-dot" style="background:#4A90E2"></view>
+          <text>舒张压</text>
+        </view>
+        <view class="legend-item">
+          <view class="line-dot" style="background:#7B68EE"></view>
+          <text>脉压差</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 图表主体：Y轴 + 固定宽度画布（不再需要横向滚动） -->
+    <view class="chart-body">
+      <canvas type="2d" id="yAxisCanvas" class="y-axis-canvas"></canvas>
+      <canvas type="2d" id="trendChart" class="chart-canvas" style="width:{{canvasWidth}}px; height:300px;"></canvas>
+    </view>
+
+    <view wx:if="{{chartSource.length === 0}}" class="chart-empty">
+      <text>暂无近60天数据</text>
+    </view>
+  </view>
+
+  <!-- 稳态偏离分布统计 -->
+  <view class="stats-row" wx:if="{{history.length > 0}}">
+    <view class="stat-card">
+      <text class="stat-val stable">{{distStable}}%</text>
+      <text class="stat-label">稳态内</text>
+      <text class="stat-sub">动力学平稳</text>
+    </view>
+    <view class="stat-card">
+      <text class="stat-val mild">{{distMild}}%</text>
+      <text class="stat-label">轻度偏离</text>
+      <text class="stat-sub">可自行恢复</text>
+    </view>
+    <view class="stat-card">
+      <text class="stat-val moderate">{{distModerate}}%</text>
+      <text class="stat-label">明显偏离</text>
+      <text class="stat-sub">需要关注</text>
+    </view>
+    <view class="stat-card">
+      <text class="stat-val significant">{{distSignificant}}%</text>
+      <text class="stat-label">显著偏离</text>
+      <text class="stat-sub">建议干预</text>
+    </view>
+  </view>
+
+  <!-- ★ 新增：60天窗口之外的历史记录——不再直接消失，用一段文字概括 -->
+  <view class="older-summary" wx:if="{{olderSummary}}">
+    <text class="older-summary-title">📜 60天前 {{olderSummary.count}} 条记录</text>
+    <text class="older-summary-text" wx:if="{{olderSummary.trendText}}">
+      收缩压中位数 {{olderSummary.medianSbp}} mmHg，{{olderSummary.trendText}}
+    </text>
+    <text class="older-summary-text">
+      稳态内 {{olderSummary.distStable}}% · 轻度偏离 {{olderSummary.distMild}}% · 明显偏离 {{olderSummary.distModerate}}% · 显著偏离 {{olderSummary.distSignificant}}%
+    </text>
+  </view>
+
+  <!-- 详细记录列表 -->
+  <view class="history-list" wx:if="{{history.length > 0}}">
+    <text class="list-title">详细记录</text>
+    <view class="history-item" wx:for="{{history}}" wx:key="index">
+      <view class="item-left">
+        <text class="date-text">{{item.dateShort}}</text>
+        <view class="deviation-tag {{item.deviationLevel}}">
+          {{item.deviationText}}
+        </view>
+      </view>
+      <view class="item-right">
+        <view class="bp-row-wrap">
+          <text class="bp-val">{{item.sbp}} / {{item.dbp}}</text>
+          <text class="bp-unit">mmHg</text>
+        </view>
+        <view class="pp-row">
+          <text class="pp-label">脉压差</text>
+          <text class="pp-val">{{item.pp}}</text>
+          <text class="pp-unit">mmHg</text>
+        </view>
+        <text class="hr-val">❤️ {{item.hr}} bpm</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty" wx:if="{{history.length === 0}}">
+    <text class="empty-icon">📋</text>
+    <text class="empty-text">暂无历史记录</text>
+  </view>
+
+  <view class="btn-area">
+    <button class="back-btn" bindtap="onGoBack">返回</button>
+  </view>
+
+</view>

@@ -87,7 +87,7 @@ def _vascular_pp(steady_result: Dict) -> Dict:
 # 原则：客观、不恐慌、进度感、行动提示简明
 # ──────────────────────────────────────────────
 
-def _generate_user_text(steady_result: Dict, risk_bundle: Dict) -> str:
+def _generate_user_text(records: List[Dict], steady_result: Dict, risk_bundle: Dict) -> str:
     long_data   = risk_bundle.get("longitudinal", {})
     ux_phase    = long_data.get("ux_phase", PHASE_1_ONBOARDING)
     total_days  = long_data.get("total_days", 0)
@@ -101,12 +101,42 @@ def _generate_user_text(steady_result: Dict, risk_bundle: Dict) -> str:
     lines = []
 
     # ── 紧急状态优先 ──
+    # ★ 改：这里之前是100%固定模板，不管这次血压具体是多少、跟平时比变化了多少，
+    #   永远是同一句话，患者看不出这次到底哪里出了问题。
+    #   现在改成引用本次实测读数 + 与个人基线的差值，并按"是否伴随症状"
+    #   "是急性波动还是持续偏离基线"分别给出对应的具体建议，语气不直白但把问题说清楚。
+    # ★ 新增：用 **文字** 标记需要前端着重展示的部分（类似 Markdown 加粗语法）——
+    #   由后端明确圈出"这部分要强调"，前端只负责识别标记上色，不用自己判断内容重要与否。
     if acute_level in ("critical", "high"):
         lines.append("⚠️ 今天的测量结果出现了较大波动。")
-        lines.append("建议您先静坐休息，避免剧烈活动。")
-        lines.append("如果有头晕、胸闷或其他不舒服，请告知家人或就医。")
         lines.append("")
-        lines.append("继续保持测量记录，有助于医生准确判断情况。")
+
+        latest = records[-1] if records else {}
+        sbp = latest.get("sbp")
+        dbp = latest.get("dbp")
+        base_info_raw = steady_result.get("base", {})
+        base_sbp = base_info_raw.get("sbp")
+        if sbp is not None and dbp is not None:
+            if base_sbp:
+                sbp_delta = sbp - base_sbp
+                lines.append(f"**本次血压 {sbp:.0f}/{dbp:.0f} mmHg，比您平时{_delta_word(sbp_delta)}。**")
+            else:
+                lines.append(f"**本次血压 {sbp:.0f}/{dbp:.0f} mmHg。**")
+        lines.append("")
+
+        symptom_lvl = risk_bundle.get("symptom_level", "none")
+        if symptom_lvl in ("high", "medium"):
+            lines.append("您提到了身体不适，建议先静坐休息；**如果症状持续或加重，请立即告知家人或就医，不要等待。**")
+        else:
+            lines.append("如果现在有头晕、胸闷、手脚无力等感觉，**请立即静坐休息并告知家人**；如果没有不适，也建议接下来避免剧烈活动，安静休息一下。")
+        lines.append("")
+
+        if acute >= chronic:
+            lines.append("这更像是一次急性波动（情绪、睡眠、天气变化都可能引起），建议今明两天多测一两次，观察是否能回到您平时的水平。")
+        else:
+            lines.append("您近期整体已经偏离平时水平一段时间了，建议留意近期用药和作息，下次复诊时把这段记录带给医生看看。")
+        lines.append("")
+        lines.append("继续保持测量记录，能帮助医生更准确地判断情况。")
         return "\n".join(lines)
 
     # ── 阶段1：入门期（1-3天）──
@@ -149,9 +179,9 @@ def _generate_user_text(steady_result: Dict, risk_bundle: Dict) -> str:
 
         # 行动提示
         if acute > 0.5:
-            lines.append("📌 今天波动略大，建议今晚保持充足睡眠，明天再测一次观察。")
+            lines.append("📌 **今天波动略大，建议今晚保持充足睡眠，明天再测一次观察。**")
         elif chronic > 0.5:
-            lines.append("📌 近期整体偏离您的个人基线，建议按时服药并留意生活规律。")
+            lines.append("📌 **近期整体偏离您的个人基线，建议按时服药并留意生活规律。**")
         else:
             lines.append("✅ 目前在您的个人稳态范围内，继续保持。")
 
@@ -180,10 +210,10 @@ def _generate_user_text(steady_result: Dict, risk_bundle: Dict) -> str:
         # 行动提示（基于个人偏离，不用标准值）
         if acute_level in ("moderate_high", "moderate"):
             lines.append("📌 今天偏离您的个人稳态较明显。")
-            lines.append("建议：今天多休息，避免情绪波动，明天同一时间再测一次。")
+            lines.append("**建议：今天多休息，避免情绪波动，明天同一时间再测一次。**")
         elif chronic > 0.5:
             lines.append("📌 近期持续偏离您的个人基线。")
-            lines.append("建议：检查近期用药规律，并在下次复诊时带上本记录。")
+            lines.append("**建议：检查近期用药规律，并在下次复诊时带上本记录。**")
         else:
             lines.append("✅ 今天在您的个人稳态范围内。")
 
@@ -375,7 +405,10 @@ def _generate_doctor_text(
     lines.append(f"- acute_push       : {risk_bundle.get('acute_push', 0):.3f}")
     lines.append(f"- acute_risk_level : {risk_bundle.get('acute_risk_level', 'N/A')}")
     lines.append(f"- symptom_level    : {risk_bundle.get('symptom_level', 'N/A')}")
-    lines.append(f"- gap_risk         : {risk_bundle.get('gap_risk', 0):.3f}")
+    # ★ 改：原来这里有一行 gap_risk，但 risk_level.py 从来没有真正计算过这个字段，
+    #   一直是 risk_bundle.get('gap_risk', 0) 的兜底默认值0，形同虚设。
+    #   没有依据的情况下不编造这个指标该怎么算，先移除，等真正设计清楚
+    #   这个指标的含义和计算方式后再加回来。
     plaque = risk_bundle.get("plaque_risk", {})
     lines.append(f"- plaque_risk      : {plaque.get('level','N/A')}  score={plaque.get('score',0):.3f}  reasons={plaque.get('reasons',[])}")
     lines.append("")
@@ -409,7 +442,8 @@ def _generate_doctor_text(
     lines.append("")
 
     # ── 图表链接 ──
-    chart_fields = ["scatter_url", "time_series_url", "trajectory_url", "volatility_url"]
+    # 对应 plots_risk.py / plots_symptoms.py 实际生成的两张图
+    chart_fields = ["risk_scores_url", "symptom_timeline_url"]
     has_charts = any(figure_paths.get(f) for f in chart_fields)
     if has_charts:
         lines.append("## Charts")
@@ -438,7 +472,7 @@ def generate_language_blocks(
     figure_paths: Dict
 ) -> Dict[str, str]:
     return {
-        "user":    _generate_user_text(steady_result, risk_bundle),
+        "user":    _generate_user_text(records, steady_result, risk_bundle),
         "watcher": _generate_watcher_text(steady_result, risk_bundle),
         "doctor":  _generate_doctor_text(records, steady_result, risk_bundle, figure_paths),
         # 向后兼容：保留 family 字段指向 watcher

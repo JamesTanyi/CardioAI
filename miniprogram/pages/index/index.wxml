@@ -1,0 +1,123 @@
+<view class="container">
+  <view class="header">
+    <view class="title-row">
+      <text class="logo-icon">❤️</text>
+      <text class="title">血压输入表</text>
+    </view>
+    <text class="subtitle">请保持静坐 5 分钟后测量</text>
+  </view>
+
+  <!-- ★ 改：用户信息卡片——不再展示/编辑内部原始ID（UMRxxx这类系统生成串），
+       改为只读展示"姓名(出生日期)"这个展示名，和家属端/医生端保持一致的识别方式。
+       内部 user_id 仍然存在、仍是数据库主键，只是不再暴露给患者本人查看/编辑。 -->
+  <view class="card id-card" wx:if="{{displayName}}">
+    <view class="id-row">
+      <text class="label">当前用户</text>
+      <text class="id-display">{{displayName}}</text>
+    </view>
+  </view>
+
+  <!-- 核心数据输入卡片 -->
+  <view class="card input-card">
+    <!-- ★ 改：之前是页面顶部一个独立的大横幅，显示后端返回的整段建议文字，
+         用户反馈太长、不该出现在输入页。现在改成嵌入输入卡片内的精简状态标签——
+         只显示极短文字，颜色随 alertLevel（后端 riskLevel 转译，不是前端重新判断）变化，
+         点击可跳转到完整的健康分析报告页查看详情。没有预警时这块完全不显示。
+         用内联样式直接绑定颜色，不依赖额外的 wxss 类。 -->
+    <view
+      class="bp-status-tag"
+      wx:if="{{showAlert}}"
+      bindtap="goToLatestResult"
+      style="display:flex;align-items:center;padding:12rpx 20rpx;border-radius:16rpx;margin-bottom:16rpx;{{alertLevel === 'high' ? 'background:#FFF0F0;' : 'background:#FFF8E8;'}}"
+    >
+      <text style="width:12rpx;height:12rpx;border-radius:50%;margin-right:12rpx;{{alertLevel === 'high' ? 'background:#F44336;' : 'background:#FFC107;'}}"></text>
+      <text style="flex:1;font-size:26rpx;{{alertLevel === 'high' ? 'color:#D32F2F;' : 'color:#B8860B;'}}">{{alertLevel === 'high' ? '上次测量偏高，请留意' : '上次测量有波动'}}</text>
+      <text style="color:#999;font-size:28rpx;">›</text>
+    </view>
+
+    <view class="row">
+      <view class="col">
+        <text class="label">高压 (收缩压)</text>
+        <view class="input-wrap">
+          <input class="big-input" type="number" placeholder="120" value="{{sbp}}" bindinput="onInputSbp" />
+          <text class="unit">mmHg</text>
+        </view>
+      </view>
+      <view class="divider"></view>
+      <view class="col">
+        <text class="label">低压 (舒张压)</text>
+        <view class="input-wrap">
+          <input class="big-input" type="number" placeholder="80" value="{{dbp}}" bindinput="onInputDbp" />
+          <text class="unit">mmHg</text>
+        </view>
+      </view>
+    </view>
+
+    <view class="row secondary-row">
+      <text class="label hr-label">心率 (选填)</text>
+      <view class="input-wrap">
+        <input class="hr-input" type="number" placeholder="75" value="{{hr}}" bindinput="onInputHr" />
+        <text class="unit">bpm</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 症状选择卡片 -->
+  <view class="card symptom-card">
+    <view class="card-title">
+      <text>当前感觉</text>
+      <text class="hint">可多选</text>
+    </view>
+    <view class="tags-container">
+      <block wx:for="{{symptoms}}" wx:key="value">
+        <view
+          class="tag {{item.selected ? 'selected' : ''}}"
+          bindtap="toggleSymptom"
+          data-index="{{index}}"
+        >
+          {{item.label}}
+        </view>
+      </block>
+    </view>
+  </view>
+
+  <!-- 家属端入口（有家属绑定时始终显示） -->
+  <view wx:if="{{hasFamilyBinding}}" class="family-entry-card {{familyAlertRisk}}" bindtap="goToFamilyDashboard">
+    <view class="family-entry-icon">👨‍👩‍👧</view>
+    <view class="family-entry-info">
+      <text class="family-entry-title">家人监护{{familyPatientName ? ' · ' + familyPatientName : ''}}</text>
+      <text class="family-entry-desc">
+        <block wx:if="{{familyAlertRisk === 'high'}}">🚨 高危预警，请立即关注</block>
+        <block wx:elif="{{familyAlertRisk === 'moderate'}}">⚠️ 血压偏高，建议关注</block>
+        <block wx:elif="{{familyAlertRisk === 'normal'}}">✅ 血压正常</block>
+        <block wx:else>随时查看家人的血压健康数据</block>
+      </text>
+    </view>
+    <view wx:if="{{familyAlertRisk === 'high' || familyAlertRisk === 'moderate'}}" class="entry-alert-dot {{familyAlertRisk}}"></view>
+    <text class="family-entry-arrow">→</text>
+  </view>
+
+  <!-- 医生端入口（有医生绑定时始终显示） -->
+  <view wx:if="{{hasDoctorBinding}}" class="doctor-entry-card" bindtap="goToDoctorDashboard">
+    <view class="doctor-entry-icon">👨‍⚕️</view>
+    <view class="doctor-entry-info">
+      <text class="doctor-entry-title">医生端</text>
+      <text class="doctor-entry-desc">
+        <block wx:if="{{doctorAlertCount > 0}}">🚨 {{doctorAlertCount}} 位患者需关注</block>
+        <block wx:else>查看绑定患者的临床数据</block>
+      </text>
+    </view>
+    <view wx:if="{{doctorAlertCount > 0}}" class="entry-badge">{{doctorAlertCount}}</view>
+    <text class="doctor-entry-arrow">→</text>
+  </view>
+
+  <!-- 提交按钮 -->
+  <button class="btn-submit" bindtap="submitAnalysis">提交并分析</button>
+
+  <!-- 更多功能入口 -->
+  <view class="more-entry" bindtap="goToMore">
+    <text class="more-text">更多功能</text>
+    <text class="more-arrow">›</text>
+  </view>
+
+</view>

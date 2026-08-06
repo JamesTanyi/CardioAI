@@ -1,0 +1,230 @@
+page {
+  background-color: #F6F7F9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, sans-serif;
+}
+
+.container {
+  padding: 30rpx;
+}
+
+.header {
+  margin-bottom: 20rpx;
+  text-align: center;
+}
+
+.title-row {
+  position: relative;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo-icon {
+  font-size: 60rpx;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.title {
+  font-size: 48rpx;
+  font-weight: 900;
+  color: #000;
+}
+
+.subtitle {
+  font-size: 32rpx;
+  color: #333;
+  font-weight: bold;
+  margin-top: 10rpx;
+  display: block;
+}
+
+.card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 30rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+  margin-bottom: 20rpx;
+}
+
+.id-card {
+  padding: 30rpx 40rpx;
+  display: flex;
+  align-items: center;
+}
+
+.id-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.id-hint {
+  font-size: 28rpx;
+  color: #000;
+  font-weight: bold;
+}
+
+.id-input {
+  text-align: right;
+  font-size: 38rpx;
+  color: #000;
+  font-weight: bold;
+  flex: 1;
+  margin-right: 10rpx;
+}
+
+.id-input.locked {
+  color: #888;
+}
+
+.lock-icon {
+  font-size: 28rpx;
+}
+
+/* 输入卡片布局 */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.col {
+  flex: 1;
+  text-align: center;
+}
+
+.divider {
+  width: 2rpx;
+  height: 80rpx;
+  background-color: #EEE;
+  margin: 0 30rpx;
+}
+
+.label {
+  font-size: 28rpx;
+  color: #000;
+  font-weight: bold;
+  display: block;
+  margin-bottom: 10rpx;
+}
+
+.hr-label {
+  margin-bottom: 0;
+}
+
+.input-wrap {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+}
+
+.big-input {
+  font-size: 64rpx;
+  font-weight: 900;
+  color: #000;
+  height: 80rpx;
+  width: 120rpx;
+  text-align: center;
+}
+
+.unit {
+  font-size: 24rpx;
+  color: #000;
+  font-weight: bold;
+  margin-left: 8rpx;
+}
+
+.secondary-row {
+  margin-top: 20rpx;
+  border-top: 2rpx dashed #EEE;
+  padding-top: 20rpx;
+}
+
+.hr-input {
+  font-size: 44rpx;
+  font-weight: 900;
+  color: #000;
+  height: 60rpx;
+  width: 100rpx;
+  text-align: right;
+}
+
+.picker-box {
+  font-size: 38rpx;
+  color: #000;
+  font-weight: 900;
+  text-align: center;
+}
+
+/* 症状标签 */
+.card-title {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+  font-size: 36rpx;
+  font-weight: 900;
+}
+.hint { font-size: 28rpx; color: #333; font-weight: bold; }
+
+.tags-container { display: flex; flex-wrap: wrap; gap: 20rpx; }
+.tag {
+  padding: 16rpx 36rpx;
+  background: #F0F2F5;
+  color: #000;
+  border-radius: 40rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  transition: all 0.2s;
+}
+.tag.selected {
+  background: #E8F7F0;
+  color: #07C160;
+  font-weight: 500;
+  border: 2rpx solid #07C160;
+}
+
+.btn-submit {
+  width: 100%;
+  background: linear-gradient(135deg, #07C160, #05A050);
+  color: #fff;
+  border-radius: 50rpx;
+  font-size: 44rpx;
+  font-weight: bold;
+  margin-top: 40rpx;
+  margin-bottom: 30rpx;
+  box-shadow: 0 10rpx 30rpx rgba(7, 193, 96, 0.3);
+}
+
+/* 更多功能入口 */
+.more-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FFB900;
+  border-radius: 44rpx;
+  padding: 30rpx 36rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  margin-top: 10rpx;
+}
+
+.more-entry:active {
+  background: #f8f8f8;
+}
+
+.more-text {
+  font-size: 44rpx;
+  font-weight: 800;
+  color: #333;
+}
+
+.more-arrow {
+  font-size: 40rpx;
+  color: #cccccc;
+  font-weight: 300;
+}
+

@@ -1,0 +1,25 @@
+{
+  "pages": [
+    "pages/onboarding/intro/intro",
+    "pages/onboarding/UserProfile/UserProfile",
+    "pages/index/index",
+    "pages/measure/result/result",
+    "pages/history/upload/upload",
+    "pages/history/month/month",
+    "pages/doctor/dashboard/dashboard",
+    "pages/family/family/family",
+    "pages/family/dashboard/dashboard",
+    "pages/profile/share/share",
+    "feedback/feedback",
+    "pages/onboarding/bind-confirm/bind-confirm",
+    "pages/doctor/patient-list/patient-list",
+    "pages/more/more"
+  ],
+  "window": {
+    "navigationBarBackgroundColor": "#27ae60",
+    "navigationBarTitleText": "心血管健康监测",
+    "navigationBarTextStyle": "white"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

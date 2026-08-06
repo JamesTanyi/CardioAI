@@ -1,0 +1,182 @@
+/* pages/profile/share/share.wxss */
+
+page {
+  background: #F6F7F9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, sans-serif;
+}
+
+.container {
+  padding: 30rpx 24rpx 80rpx;
+}
+
+/* ── 顶部说明 ── */
+.header {
+  margin-bottom: 30rpx;
+}
+
+.title {
+  display: block;
+  font-size: 40rpx;
+  font-weight: 900;
+  color: #222;
+  margin-bottom: 12rpx;
+}
+
+.subtitle {
+  display: block;
+  font-size: 26rpx;
+  color: #888;
+  line-height: 1.6;
+}
+
+/* ── ★ v9 角色选择器 ── */
+.role-selector {
+  display: flex;
+  gap: 20rpx;
+  margin-bottom: 30rpx;
+}
+
+.role-tab {
+  flex: 1;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border: 4rpx solid transparent;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.05);
+  transition: all 0.2s;
+}
+
+.role-tab.active {
+  border-color: #07C160;
+  background: #f0faf4;
+}
+
+.role-icon {
+  font-size: 48rpx;
+  margin-bottom: 10rpx;
+}
+
+.role-name {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #444;
+}
+
+.role-tab.active .role-name {
+  color: #07C160;
+}
+
+/* ── 卡片 ── */
+.card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 36rpx 30rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.card-label {
+  display: block;
+  font-size: 24rpx;
+  font-weight: 700;
+  color: #aaa;
+  letter-spacing: 2rpx;
+  margin-bottom: 28rpx;
+  align-self: flex-start;
+}
+
+.card-tip {
+  display: block;
+  font-size: 24rpx;
+  color: #bbb;
+  text-align: center;
+  line-height: 1.6;
+  margin-top: 20rpx;
+}
+
+/* ── 二维码 ── */
+.qr-box {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  margin-bottom: 10rpx;
+}
+
+.qr-canvas {
+  width: 220px;
+  height: 220px;
+  border-radius: 12rpx;
+}
+
+.qr-loading {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f5f5;
+  border-radius: 12rpx;
+  font-size: 26rpx;
+  color: #bbb;
+}
+
+/* ── ID展示 ── */
+.id-box {
+  background: #F6F7F9;
+  border-radius: 16rpx;
+  padding: 24rpx 40rpx;
+  margin-bottom: 16rpx;
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.id-text {
+  font-size: 40rpx;
+  font-weight: 900;
+  color: #222;
+  letter-spacing: 4rpx;
+}
+
+/* ── 按钮 ── */
+.copy-btn {
+  margin-top: 20rpx;
+  width: 100%;
+  height: 80rpx;
+  line-height: 80rpx;
+  background: #07C160;
+  color: #fff;
+  border-radius: 40rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  border: none;
+}
+
+.share-btn {
+  width: 100%;
+  height: 96rpx;
+  line-height: 96rpx;
+  background: #fff;
+  color: #07C160;
+  border-radius: 48rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  border: 2rpx solid #07C160;
+}
+
+.bottom-tip {
+  display: block;
+  text-align: center;
+  font-size: 24rpx;
+  color: #ccc;
+  margin-top: 30rpx;
+  line-height: 1.6;
+}

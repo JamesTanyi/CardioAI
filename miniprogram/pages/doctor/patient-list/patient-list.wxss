@@ -1,0 +1,161 @@
+/* pages/doctor/patient-list/patient-list.wxss */
+
+.pl-container {
+  min-height: 100vh;
+  background: #F7F8FA;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.pl-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 16rpx 8rpx 24rpx;
+}
+
+.pl-title {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: #222;
+}
+
+.pl-count {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.pl-loading, .pl-empty {
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+  padding: 80rpx 40rpx;
+}
+
+.pl-list {
+  background: #fff;
+  border-radius: 20rpx;
+  overflow: hidden;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.04);
+}
+
+.pl-row {
+  display: flex;
+  align-items: center;
+  padding: 26rpx 16rpx;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+.pl-row:last-child {
+  border-bottom: none;
+}
+
+.pl-row-header {
+  background: #FAFAFA;
+  padding: 20rpx 16rpx;
+}
+
+.pl-row-header .pl-col {
+  font-size: 24rpx;
+  color: #999;
+  font-weight: 500;
+}
+
+.pl-col {
+  font-size: 30rpx;
+  color: #333;
+}
+
+.pl-col-index {
+  width: 70rpx;
+  text-align: center;
+  color: #BBB;
+}
+
+.pl-col-name {
+  flex: 1;
+  padding-left: 8rpx;
+}
+
+.pl-name-link {
+  color: #1565C0;
+  font-weight: 600;
+}
+
+.pl-col-age, .pl-col-gender {
+  width: 90rpx;
+  text-align: center;
+  color: #666;
+}
+
+.pl-col-status {
+  width: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ★ 红黄绿三色状态点：critical/high=红，moderate=黄，low/none=绿 */
+.pl-status-dot {
+  width: 24rpx;
+  height: 24rpx;
+  border-radius: 50%;
+}
+
+.pl-status-dot.critical,
+.pl-status-dot.high {
+  background: #F44336;
+}
+
+.pl-status-dot.moderate {
+  background: #FFC107;
+}
+
+.pl-status-dot.low,
+.pl-status-dot.none {
+  background: #4CAF50;
+}
+
+/* ★ 新增：留言未读提醒 */
+.pl-col-msg {
+  width: 130rpx; /* ★ 改：原来70rpx只够放一个孤立数字，加了"留言"文字后太窄导致逐字换行 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pl-col-msg-header {
+  gap: 6rpx;
+}
+
+.pl-msg-count-header {
+  min-width: 28rpx;
+  height: 28rpx;
+  line-height: 28rpx;
+  font-size: 18rpx;
+}
+
+.pl-msg-badge {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.pl-msg-label {
+  font-size: 22rpx;
+  color: #666;
+  white-space: nowrap;
+}
+
+.pl-msg-count {
+  min-width: 32rpx;
+  height: 32rpx;
+  padding: 0 6rpx;
+  border-radius: 16rpx;
+  background: #FF4D4F;
+  color: #fff;
+  font-size: 20rpx;
+  line-height: 32rpx;
+  text-align: center;
+  box-sizing: border-box;
+}

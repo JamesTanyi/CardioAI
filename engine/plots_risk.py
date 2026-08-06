@@ -8,7 +8,16 @@
 """
 
 import matplotlib.pyplot as plt
+import matplotlib
 import os
+
+# 部署环境（容器/云托管）通常不带中文字体，不配置会导致图里中文全部变成方框。
+# 按优先级尝试几个常见的中文字体，一个都找不到就退回默认。
+for _font in ["Noto Sans CJK SC", "WenQuanYi Zen Hei", "SimHei", "Microsoft YaHei", "PingFang SC"]:
+    if _font in {f.name for f in matplotlib.font_manager.fontManager.ttflist}:
+        matplotlib.rcParams["font.sans-serif"] = [_font]
+        break
+matplotlib.rcParams["axes.unicode_minus"] = False
 
 
 # ==========================
@@ -20,6 +29,7 @@ RISK_COLOR = {
     "moderate": "#FFC107",       # 黄色
     "moderate_high": "#FF9800",  # 橙色
     "high": "#F44336",           # 红色
+    "critical": "#B71C1C",       # 深红色（risk_level.py 会产出这个等级，原字典缺失会导致 KeyError）
 }
 
 
@@ -58,7 +68,7 @@ def plot_risk_scores(risk_bundle, output_dir):
     acute = risk_bundle["acute_push"]
     level = risk_bundle["acute_risk_level"]
 
-    color = RISK_COLOR[level]
+    color = RISK_COLOR.get(level, "#9E9E9E")  # 未知等级兜底为灰色，不再直接 KeyError 崩溃
 
     fig, ax = plt.subplots(figsize=(6, 4))
 

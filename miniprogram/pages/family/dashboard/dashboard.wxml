@@ -1,0 +1,95 @@
+<view class="fd-container">
+  <!-- ★ 改：健康风险提示——只显示后端算好的分类标签，不再拼接前端编写的句子；
+       系统状态提示（无权限/暂无数据/加载失败）单独用 statusMsg，和健康判断分开，
+       避免"无权限查看"这种系统消息被误当成健康风险信息 -->
+  <view class="alert-banner {{riskLevel}}" wx:if="{{hasAlert}}" bindtap="loadPatientData">
+    <view class="alert-icon">{{riskLevel === 'high' ? '🚨' : '⚠️'}}</view>
+    <view class="alert-body">
+      <text class="alert-title">{{riskLabel}}</text>
+    </view>
+    <text class="alert-refresh">↻</text>
+  </view>
+
+  <!-- 系统状态提示（无权限/暂无数据/加载失败，非健康判断） -->
+  <view class="status-banner" wx:if="{{hasStatusMsg}}" bindtap="loadPatientData">
+    <text class="status-text">{{statusMsg}}</text>
+    <text class="alert-refresh">↻</text>
+  </view>
+
+  <!-- 已绑定患者提示 -->
+  <view class="bound-banner" wx:if="{{patientId}}">
+    <text class="bound-label">已绑定患者：</text>
+    <text class="bound-name">{{patientName}}</text>
+  </view>
+
+  <!-- 患者信息卡片 -->
+  <view class="fd-patient-card">
+    <view class="fd-avatar">👤</view>
+    <view class="fd-patient-info">
+      <text class="fd-patient-name">{{patientName}}</text>
+      <text class="fd-patient-id">ID: {{patientId}}</text>
+    </view>
+    <view class="fd-risk-badge {{riskLevel}}">{{riskLabel}}</view>
+    <!-- ★ 新增：留言反馈入口，跳转到三方共享留言板 -->
+    <view class="fd-feedback-btn" wx:if="{{patientId}}" bindtap="goToFeedback">
+      💬 留言
+      <view class="fd-feedback-dot" wx:if="{{unreadFeedbackCount > 0}}">{{unreadFeedbackCount > 99 ? '99+' : unreadFeedbackCount}}</view>
+    </view>
+  </view>
+
+  <!-- ★ 改：删除了"血压统计卡片"（平均血压/最高收缩压/异常率）整块——
+       心血管健康场景下，平均值这类统计方式会掩盖危险信号，项目理念
+       不允许出现任何前端计算的统计摘要。血压情况完全通过下面的原始
+       轨迹图表和逐条读数呈现，不用任何聚合数字代替。 -->
+
+  <!-- 血压趋势图（如实展示每一个原始数据点，不做平均） -->
+  <view class="fd-section">
+    <view class="fd-section-title">📈 30天血压趋势</view>
+    <view class="fd-chart-wrapper">
+      <scroll-view scroll-x class="fd-chart-scroll" scroll-left="{{scrollLeft}}">
+        <canvas type="2d" id="familyChart" class="fd-chart-canvas" style="width: {{canvasWidth}}px; height: 300rpx;" wx:if="{{chartSource.length > 0}}"></canvas>
+      </scroll-view>
+    </view>
+    <view class="fd-chart-legend" wx:if="{{chartSource.length > 0}}">
+      <view class="fd-legend-item"><view class="fd-dot red"></view>收缩压</view>
+      <view class="fd-legend-item"><view class="fd-dot blue"></view>舒张压</view>
+    </view>
+    <view class="fd-chart-empty" wx:if="{{chartSource.length === 0}}">
+      <text>暂无趋势数据，请提醒家人定期测量</text>
+    </view>
+  </view>
+
+  <!-- 最近读数列表：异常/正常标签直接用该条记录自己的 risk_level（后端算好存库的），
+       不再用 sbp/dbp 数值现场比较判断 -->
+  <view class="fd-section" wx:if="{{recentLogs.length > 0}}">
+    <view class="fd-section-title">📋 最近读数</view>
+    <view class="fd-log-list">
+      <view class="fd-log-item {{item.risk_level && item.risk_level !== 'normal' && item.risk_level !== 'none' ? 'abnormal' : ''}}" wx:for="{{recentLogs}}" wx:key="datetime">
+        <view class="fd-log-date">{{item.dateSimple}}</view>
+        <view class="fd-log-values">
+          <text class="fd-log-sbp">{{item.sbp}}</text>
+          <text class="fd-log-sep">/</text>
+          <text class="fd-log-dbp">{{item.dbp}}</text>
+        </view>
+        <view class="fd-log-flag" wx:if="{{item.risk_level && item.risk_level !== 'normal' && item.risk_level !== 'none'}}">⚠异常</view>
+        <view class="fd-log-flag normal" wx:else>✓正常</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- AI关注者分析：完全是后端原文，前端不做任何分类/加工 -->
+  <view class="fd-section fd-analysis" wx:if="{{watcherAnalysis.length > 0}}">
+    <view class="fd-section-title">💡 健康建议</view>
+    <view class="fd-analysis-text">
+      <block wx:for="{{watcherAnalysis}}" wx:key="index">
+        <view class="fd-analysis-line">{{item.content}}</view>
+      </block>
+    </view>
+    <text class="fd-analysis-time" wx:if="{{analysisTime}}">{{analysisTime}} · AI分析</text>
+  </view>
+
+  <!-- 底部工具栏 -->
+  <view class="fd-actions">
+    <button class="fd-btn" bindtap="goHome">返回首页</button>
+  </view>
+</view>

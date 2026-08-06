@@ -1,0 +1,243 @@
+const app = getApp();
+const cloudService = require('../../utils/cloudService.js');
+
+Page({
+  data: {
+    sbp: '',
+    dbp: '',
+    userId: '',
+    displayName: '',
+    isUserIdLocked: false,
+    hr: '',
+    currentRole: 'user',
+    showAlert: false,
+    alertLevel: 'normal',
+    alertMsg: '',
+
+    symptoms: [
+      { label: '头晕',         value: 'dizzy',           selected: false },
+      { label: '胸闷',         value: 'chest_tightness',  selected: false },
+      { label: '心悸',         value: 'palpitations',     selected: false },
+      { label: '胸痛',         value: 'chest_pain',       selected: false },
+      { label: '乏力',         value: 'fatigue',          selected: false },
+      { label: '呼吸困难',     value: 'short_breath',     selected: false },
+      { label: '视物模糊',     value: 'vision_loss',      selected: false },
+      { label: '焦虑紧张',     value: 'anxiety',          selected: false },
+      { label: '单侧肢体无力', value: 'limb_weakness',    selected: false },
+      { label: '语言不清',     value: 'slurred_speech',   selected: false },
+      { label: '头痛',         value: 'headache',         selected: false },
+      { label: '异常疲劳',     value: 'abnormal_fatigue', selected: false },
+    ]
+  },
+
+  onLoad() {
+    this.checkUserId();
+    const role = (app && typeof app.getRole === 'function')
+      ? app.getRole()
+      : (wx.getStorageSync('currentRole') || 'user');
+    this.setData({ currentRole: role });
+    this.checkAlertStatus();
+    this._autoRouteToDashboard(role);
+  },
+
+  onShow() {
+    const storedId = wx.getStorageSync('app_user_id') || wx.getStorageSync('userId');
+    if (storedId) {
+      this.setData({ userId: storedId, isUserIdLocked: true });
+    }
+    this._syncDisplayName();
+    const role = (app && typeof app.getRole === 'function')
+      ? app.getRole()
+      : (wx.getStorageSync('currentRole') || 'user');
+    this.setData({ currentRole: role });
+    this.checkAlertStatus();
+    this._autoRouteToDashboard(role);
+  },
+
+  /**
+   * ★ 新增：统一计算展示名——"姓名(出生日期)"，不再只显示姓名
+   *   这样患者本人这一端和家属/医生端看到的格式保持一致，
+   *   同时也不再需要暴露/编辑内部 user_id（见 index.wxml 的改动）。
+   */
+  _syncDisplayName() {
+    const profile = wx.getStorageSync('userProfile') || {};
+    if (!profile.name) return;
+    const displayName = profile.birthDate ? `${profile.name}(${profile.birthDate})` : profile.name;
+    this.setData({ displayName });
+  },
+
+  _autoRouteToDashboard(role) {
+    if (role !== 'family' && role !== 'doctor') return;
+    const pages = getCurrentPages();
+    if (pages.length > 0) {
+      const currentPagePath = pages[pages.length - 1].route;
+      if (currentPagePath.indexOf('dashboard') !== -1) return;
+    }
+    if (role === 'family') {
+      const localFamily = wx.getStorageSync('has_family_binding');
+      const localPid = wx.getStorageSync('family_patient_id') || '';
+      if (localFamily && localPid) {
+        const localPname = wx.getStorageSync('family_patient_name') || localPid;
+        wx.reLaunch({ url: `/pages/family/dashboard/dashboard?patientId=${localPid}&patientName=${encodeURIComponent(localPname)}` });
+        return;
+      }
+    }
+    if (role === 'doctor') {
+      const localDoctor = wx.getStorageSync('has_doctor_binding');
+      const localPid = wx.getStorageSync('last_viewed_patient') || '';
+      if (localDoctor && localPid) {
+        const localPname = wx.getStorageSync('last_viewed_patient_name') || localPid;
+        wx.reLaunch({ url: `/pages/doctor/dashboard/dashboard?patientId=${localPid}&patientName=${encodeURIComponent(localPname)}` });
+        return;
+      }
+    }
+  },
+
+  checkUserId() {
+    const storedId = wx.getStorageSync('app_user_id') || wx.getStorageSync('userId');
+    if (storedId) {
+      this.setData({ userId: storedId, isUserIdLocked: true });
+      this._syncDisplayName();
+    } else {
+      wx.reLaunch({ url: '/pages/onboarding/UserProfile/UserProfile' });
+    }
+  },
+
+  onInputSbp(e) { this.setData({ sbp: e.detail.value }); },
+  onInputDbp(e) { this.setData({ dbp: e.detail.value }); },
+  onInputHr(e) { this.setData({ hr: e.detail.value }); },
+
+  toggleSymptom(e) {
+    const index = e.currentTarget.dataset.index;
+    const key = `symptoms[${index}].selected`;
+    this.setData({ [key]: !this.data.symptoms[index].selected });
+  },
+
+  // ====================================================
+  // ★ measure_bp.analyze_measurement 是"自给自足"接口——
+  //   后端自己查历史、自己跑分析引擎、自己把这条记录存进数据库，
+  //   前端只需要传本次这一条测量数据（扁平结构），不再需要：
+  //   1) 客户端先查历史再传给后端
+  //   2) analyze 成功后再单独调 save_history 存一次
+  //      （否则会导致同一条记录在 measurements 表里存两遍）
+  // ====================================================
+  async submitAnalysis() {
+    const sbp = parseInt(this.data.sbp);
+    const dbp = parseInt(this.data.dbp);
+    if (!sbp || !dbp) {
+      wx.showToast({ title: '请输入血压值', icon: 'none' });
+      return;
+    }
+    if (sbp <= dbp) {
+      wx.showToast({ title: '高压必须大于低压', icon: 'none' });
+      return;
+    }
+    if (!this.data.userId) {
+      wx.showToast({ title: '用户ID不能为空', icon: 'none' });
+      return;
+    }
+
+    wx.showLoading({ title: 'AI 分析中...', mask: true });
+
+    try {
+      const selectedSymptoms = this.data.symptoms.filter(item => item.selected).map(item => item.value);
+      const now = new Date();
+      const fullDateTime = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:00`;
+
+      const payload = {
+        userId: this.data.userId,
+        sbp, dbp,
+        hr: parseInt(this.data.hr) || 75,
+        symptoms: selectedSymptoms
+      };
+
+      const requestWithRetry = (retries) => {
+        cloudService.analyze(payload)
+          .then((res) => {
+            wx.hideLoading();
+            if (res && res.code === 0) {
+              const resultData = res.data;
+              const newRecord = {
+                userId: this.data.userId,
+                datetime: fullDateTime,
+                sbp, dbp,
+                hr: parseInt(this.data.hr) || 75,
+                symptoms: selectedSymptoms,
+                riskLevel: resultData.riskLevel || 'normal',
+                riskText: resultData.message || resultData.riskLevel || '',
+                analysis: resultData
+              };
+              const currentHistory = wx.getStorageSync('measure_history') || [];
+              currentHistory.unshift(newRecord);
+              wx.setStorageSync('measure_history', currentHistory);
+              const resultStr = encodeURIComponent(JSON.stringify(resultData));
+              wx.navigateTo({ url: `/pages/measure/result/result?data=${resultStr}` });
+            } else {
+              wx.showModal({ title: '分析失败', content: (res && res.msg) || '服务异常，请重试' });
+            }
+          })
+          .catch((err) => {
+            if (retries > 0) {
+              setTimeout(() => requestWithRetry(retries - 1), 2000);
+            } else {
+              wx.hideLoading();
+              wx.showToast({ title: '网络请求失败', icon: 'none' });
+              console.error('analyze request failed', err);
+            }
+          });
+      };
+      requestWithRetry(3);
+    } catch (err) {
+      wx.hideLoading();
+      console.error(err);
+    }
+  },
+
+  goToMore() { wx.navigateTo({ url: '/pages/more/more' }); },
+
+  goToFamilyDashboard() {
+    const pid = wx.getStorageSync('family_patient_id') || '';
+    const pname = wx.getStorageSync('family_patient_name') || pid;
+    wx.navigateTo({ url: `/pages/family/dashboard/dashboard?patientId=${pid}&patientName=${encodeURIComponent(pname)}` });
+  },
+
+  goToDoctorDashboard() {
+    // ★ 改：医生的默认落地页是患者列表，不是某一个患者的详情
+    wx.navigateTo({ url: '/pages/doctor/patient-list/patient-list' });
+  },
+
+  goToLatestResult() {
+    const history = wx.getStorageSync('measure_history') || [];
+    if (history.length > 0) {
+      const latest = history[0];
+      if (latest.analysis) {
+        const resultStr = encodeURIComponent(JSON.stringify(latest.analysis));
+        wx.navigateTo({ url: `/pages/measure/result/result?data=${resultStr}` });
+        return;
+      }
+    }
+    wx.navigateTo({ url: '/pages/history/month/month' });
+  },
+
+  // ★ 改：不再展示大段建议文字的横幅——只根据后端已经算好的 riskLevel（个性化判断，
+  //   非固定阈值）给一个极短的状态标签，颜色随状态变化，嵌入输入卡片内，
+  //   点击可跳转到完整报告页查看详情文字。前端这里不做任何新的判断，
+  //   只是把后端已决定的分类（high/moderate）翻译成一句简短提示。
+  checkAlertStatus() {
+    const history = wx.getStorageSync('measure_history') || [];
+    if (history.length === 0) {
+      this.setData({ showAlert: false });
+      return;
+    }
+    const latest = history[0];
+    const riskLevel = latest.riskLevel || 'normal';
+
+    if (riskLevel === 'high' || riskLevel === 'critical') {
+      this.setData({ showAlert: true, alertLevel: 'high' });
+    } else if (riskLevel === 'moderate') {
+      this.setData({ showAlert: true, alertLevel: 'moderate' });
+    } else {
+      this.setData({ showAlert: false });
+    }
+  }
+});

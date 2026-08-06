@@ -1,0 +1,136 @@
+<!-- pages/feedback/feedback.wxml -->
+<view class="container">
+
+  <!-- 顶部导航 -->
+  <view class="header" style="height: {{headerTotalHeight}}px;">
+    <view class="back-btn" style="top: {{headerContentCenterY}}px;" bindtap="onGoBack">‹</view>
+    <text class="title" style="top: {{headerContentCenterY}}px; right: {{headerTitleRight}}px;">健康反馈{{patientName ? ' · ' + patientName : ''}}</text>
+    <view class="header-right" style="top: {{headerContentCenterY}}px; right: {{headerRightGap}}px;">
+      <view wx:if="{{myRole === 'patient'}}" class="manage-btn {{manageMode ? 'active' : ''}}" bindtap="toggleManageMode">🗑</view>
+      <view class="refresh-btn" bindtap="_resolveDoctorContextAndLoad">↻</view>
+      <view class="send-btn" bindtap="showSendModal">✉</view>
+    </view>
+  </view>
+
+  <!-- 当前医生线（患者/家属才显示；只绑一个医生时不给切换入口） -->
+  <view
+    wx:if="{{myRole !== 'doctor' && doctorId}}"
+    class="doctor-bar {{doctors.length > 1 ? 'switchable' : ''}}"
+    bindtap="showDoctorPickerModal"
+  >
+    <text class="doctor-bar-icon">🩺</text>
+    <text class="doctor-bar-text">当前医生：{{doctorName}}</text>
+    <text wx:if="{{doctors.length > 1}}" class="doctor-bar-arrow">▾</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view wx:if="{{loading || doctorsLoading}}" class="state-box">
+    <text class="state-icon">⏳</text>
+    <text class="state-text">加载中...</text>
+  </view>
+
+  <!-- 未绑定任何医生：留言线建不起来 -->
+  <view wx:elif="{{noDoctorBound}}" class="state-box">
+    <text class="state-icon">🩺</text>
+    <text class="state-text">尚未绑定医生</text>
+    <text class="state-sub">绑定医生后才能开始留言</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{isEmpty}}" class="state-box">
+    <text class="state-icon">💬</text>
+    <text class="state-text">暂无留言</text>
+    <text class="state-sub">医生、家属和患者本人的留言都会显示在这里\n点右上角 ✉ 写下第一条</text>
+  </view>
+
+  <!-- 反馈列表 -->
+  <scroll-view wx:else scroll-y class="feed-list">
+    <view
+      wx:for="{{feedbacks}}"
+      wx:key="id"
+      class="feed-card {{item.isMine ? 'mine' : 'other'}} {{manageMode ? 'manage' : ''}}"
+      data-id="{{item.id}}"
+      bindtap="toggleSelectFeedback"
+    >
+      <!-- 管理模式复选框 -->
+      <view wx:if="{{manageMode}}" class="feed-checkbox {{selectedIds.indexOf(item.id) > -1 ? 'checked' : ''}}"></view>
+
+      <view class="feed-body">
+        <!-- 头部：角色标签 + 时间 -->
+        <view class="feed-header">
+          <text class="role-tag {{item.roleClass}}">{{item.roleLabel}}</text>
+          <text class="feed-time">{{item.timeStr}}</text>
+        </view>
+
+        <!-- 反馈内容 -->
+        <text class="feed-content" user-select>{{item.content}}</text>
+      </view>
+    </view>
+  </scroll-view>
+
+  <!-- 管理模式底部操作栏（仅患者） -->
+  <view wx:if="{{manageMode}}" class="manage-bar">
+    <text class="manage-count">已选 {{selectedIds.length}} 条</text>
+    <view class="manage-actions">
+      <button class="btn-clear-all" bindtap="clearAll" loading="{{clearing}}">清空全部</button>
+      <button class="btn-delete-selected" bindtap="deleteSelected" loading="{{deleting}}">删除所选</button>
+    </view>
+  </view>
+
+  <!-- 医生选择弹窗（绑定多个医生时才会触发） -->
+  <view wx:if="{{showDoctorPicker}}" class="modal-mask" bindtap="closeDoctorPicker">
+    <view class="modal-content" catchtap="noop">
+      <view class="modal-header">
+        <text class="modal-title">切换留言线</text>
+        <view class="modal-close" bindtap="closeDoctorPicker">✕</view>
+      </view>
+      <view class="doctor-list">
+        <view
+          wx:for="{{doctors}}"
+          wx:for-item="doc"
+          wx:key="doctorId"
+          class="doctor-option {{doc.doctorId === doctorId ? 'selected' : ''}}"
+          data-id="{{doc.doctorId}}"
+          bindtap="selectDoctor"
+        >
+          <view class="doctor-option-main">
+            <text class="doctor-option-name">{{doc.doctorName}}</text>
+            <text wx:if="{{doc.hospital}}" class="doctor-option-sub">{{doc.hospital}}{{doc.department ? ' · ' + doc.department : ''}}</text>
+          </view>
+          <text wx:if="{{doc.doctorId === doctorId}}" class="doctor-option-check">✓</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 发送反馈弹窗 -->
+  <view wx:if="{{showSendModal}}" class="modal-mask" bindtap="closeSendModal">
+    <view class="modal-content" catchtap="noop">
+      <view class="modal-header">
+        <text class="modal-title">发送反馈</text>
+        <view class="modal-close" bindtap="closeSendModal">✕</view>
+      </view>
+
+      <!-- 反馈内容 -->
+      <view class="modal-field">
+        <text class="field-label">留言内容</text>
+        <textarea
+          class="field-textarea"
+          placeholder="请输入留言内容（最多500字）"
+          value="{{sendContent}}"
+          bindinput="onInputContent"
+          maxlength="500"
+          auto-height
+        />
+        <text class="char-count">{{sendContent.length}}/500</text>
+      </view>
+
+      <!-- 按钮 -->
+      <view class="modal-buttons">
+        <button class="btn-cancel" bindtap="closeSendModal">取消</button>
+        <button class="btn-send" bindtap="sendFeedback" loading="{{sending}}">发送</button>
+      </view>
+    </view>
+  </view>
+
+</view>

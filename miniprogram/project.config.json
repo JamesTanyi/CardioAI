@@ -1,0 +1,41 @@
+{
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "compileWorklet": false,
+    "minified": true,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "enhance": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": true,
+    "disableSWC": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "miniprogramRoot": "./",
+  "compileType": "miniprogram",
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "appid": "wxc5b1f8601518c8cb",
+  "editorSetting": {},
+  "libVersion": "3.14.3",
+  "testRoot": "minitest/",
+  "cloudbaseHosting": {
+    "serviceName": "cardioai-backend",
+    "localPort": 80
+  }
+}

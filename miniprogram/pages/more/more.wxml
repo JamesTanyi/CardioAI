@@ -1,0 +1,75 @@
+<view class="container">
+  <!-- 顶部标题区 -->
+  <view class="header">
+    <text class="title">更多功能</text>
+    <text class="subtitle">选择您需要的功能</text>
+  </view>
+
+  <!-- 功能入口卡片列表 -->
+  <view class="feature-list">
+    <!-- 家人监护（含邀请关注 + 绑定亲属） -->
+    <view class="feature-card" bindtap="goToFeature" data-url="/pages/family/family/family?tab=family">
+      <view class="feature-icon">👨‍👩‍👧</view>
+      <view class="feature-info">
+        <text class="feature-title">家人监护</text>
+        <text class="feature-desc">邀请关注 · 管理家人健康</text>
+      </view>
+      <text class="feature-arrow">›</text>
+    </view>
+
+    <!-- 查看家人数据 卡片已删除：这个入口跳转到 family/dashboard，是给"家属角色"
+         查看自己监护的患者数据用的；而这个 more 页面只有患者账号能进(家属/医生
+         走的是完全不同的入口，看不到这个页面)，患者本人点开这张卡片没有对应的
+         数据可看，是从未真正生效过的废弃功能，直接删除 -->
+
+    <!-- 绑定医生 -->
+    <view class="feature-card" bindtap="goToFeature" data-url="/pages/family/family/family?tab=doctor">
+      <view class="feature-icon">🩺</view>
+      <view class="feature-info">
+        <text class="feature-title">绑定医生</text>
+        <text class="feature-desc">邀请医生查看我的健康数据</text>
+      </view>
+      <text class="feature-arrow">›</text>
+    </view>
+
+    
+    <!-- 上传历史 -->
+    <view class="feature-card" bindtap="goToFeature" data-url="/pages/history/upload/upload">
+      <view class="feature-icon">⬆️</view>
+      <view class="feature-info">
+        <text class="feature-title">上传历史</text>
+        <text class="feature-desc">导入历史记录</text>
+      </view>
+      <text class="feature-arrow">›</text>
+    </view>
+
+    <!-- 历史趋势 -->
+    <view class="feature-card" bindtap="goToFeature" data-url="/pages/history/month/month">
+      <view class="feature-icon">📅</view>
+      <view class="feature-info">
+        <text class="feature-title">历史趋势</text>
+        <text class="feature-desc">查看健康趋势</text>
+      </view>
+      <text class="feature-arrow">›</text>
+    </view>
+
+    <!-- 健康反馈 -->
+    <view class="feature-card" bindtap="goToFeature" data-url="/feedback/feedback">
+      <view class="feature-icon-wrap">
+        <text class="feature-icon">💬</text>
+        <text wx:if="{{unreadCount > 0}}" class="badge">{{unreadCount > 99 ? '99+' : unreadCount}}</text>
+      </view>
+      <view class="feature-info">
+        <text class="feature-title">健康反馈</text>
+        <text class="feature-desc">查看消息反馈</text>
+      </view>
+      <text class="feature-arrow">›</text>
+    </view>
+
+    <!-- ★ "绑定管理"卡片已删除：已绑定医生/家属列表 + 解绑功能，
+         现在直接合并进上面的"家人监护"和"绑定医生"两张卡片各自跳转的
+         family/family 页面里(按 tab 展示对应列表)，不再需要单独的
+         pages/profile/bindings 页面和入口 -->
+
+  </view>
+</view>

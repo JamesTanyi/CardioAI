@@ -1,5 +1,5 @@
 from datetime import datetime
-from engine.lifecycle import calculate_lifecycle_state
+from .lifecycle import calculate_lifecycle_state
 
 HIGH_RISK_SYMPTOMS = {"chest_pain", "weakness_one_side", "slurred_speech", "vision_loss", "confusion", "thunderclap_headache"}
 MEDIUM_RISK_SYMPTOMS = {"chest_tightness", "dizzy", "palpitations", "short_breath", "severe_headache"}

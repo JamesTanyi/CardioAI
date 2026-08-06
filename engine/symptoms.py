@@ -93,7 +93,11 @@ def symptoms_to_segments(symptoms: List[str]):
     return [
         {sym: 1 for sym in symptoms}
     ]
-# app/engine/symptoms.py
+
+
+# ==========================
+# 6. 症状摘要占位（供未来扩展更复杂的规则）
+# ==========================
 
 def analyze_symptoms(symptoms_list):
     """

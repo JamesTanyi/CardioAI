@@ -7,8 +7,16 @@
 """
 
 import matplotlib.pyplot as plt
+import matplotlib
 import os
 from datetime import datetime
+
+# 同 plots_risk.py：部署环境通常没有中文字体，这里做同样的兜底配置。
+for _font in ["Noto Sans CJK SC", "WenQuanYi Zen Hei", "SimHei", "Microsoft YaHei", "PingFang SC"]:
+    if _font in {f.name for f in matplotlib.font_manager.fontManager.ttflist}:
+        matplotlib.rcParams["font.sans-serif"] = [_font]
+        break
+matplotlib.rcParams["axes.unicode_minus"] = False
 
 
 # ==========================

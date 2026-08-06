@@ -1,0 +1,47 @@
+<!-- pages/profile/share/share.wxml -->
+<view class="container">
+
+  <!-- 顶部说明 -->
+  <view class="header">
+    <text class="title">邀请关注者</text>
+    <text class="subtitle">家属、朋友或医护人员可通过以下方式关注您的健康数据</text>
+  </view>
+
+  <!-- ★ v9：角色选择器 -->
+  <view class="role-selector">
+    <view class="role-tab {{selectedRole === 'family' ? 'active' : ''}}" bindtap="onRoleChange" data-role="family">
+      <text class="role-icon">👨‍👩‍👧‍👦</text>
+      <text class="role-name">邀请家属</text>
+    </view>
+    <view class="role-tab {{selectedRole === 'doctor' ? 'active' : ''}}" bindtap="onRoleChange" data-role="doctor">
+      <text class="role-icon">🩺</text>
+      <text class="role-name">邀请医生</text>
+    </view>
+  </view>
+
+  <!-- 二维码卡片 -->
+  <view class="card">
+    <text class="card-label">方式一：扫码绑定</text>
+    <view class="qr-box">
+      <canvas type="2d" id="qrcode" class="qr-canvas"></canvas>
+      <view wx:if="{{!qrReady}}" class="qr-loading">
+        <text>生成中...</text>
+      </view>
+    </view>
+    <text class="card-tip">{{selectedRole === 'doctor' ? '医生' : '家属'}}用微信扫描二维码后跳转确认绑定</text>
+  </view>
+
+  <!-- 隐私说明 -->
+  <view class="card">
+    <text class="card-label">隐私保护</text>
+    <text class="card-tip">邀请链接仅携带一次性凭证，患者ID不会泄露。对方扫码后需确认绑定，才能长期查看您的数据。</text>
+  </view>
+
+  <!-- 微信分享卡片 -->
+  <button class="share-btn" open-type="share" disabled="{{!shareToken}}">🔗 通过微信发送邀请</button>
+  <button class="copy-btn" bindtap="onCopyInviteLink" disabled="{{!shareToken}}">📋 复制邀请链接</button>
+  <view wx:if="{{!shareToken}}" class="invite-wait-tip">正在生成邀请，请稍候…</view>
+
+  <text class="bottom-tip">关注者绑定后可查看您的健康数据并发送关怀提醒</text>
+
+</view>

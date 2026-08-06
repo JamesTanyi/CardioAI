@@ -1,0 +1,496 @@
+page {
+  background: #f5f5f5;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.report-container {
+  padding: 24rpx;
+  padding-bottom: 60rpx;
+}
+
+/* ========== 患者选择栏 ========== */
+.patient-select-bar {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+}
+
+.ps-feedback-btn {
+  flex-shrink: 0;
+  margin-left: 16rpx;
+  padding: 12rpx 20rpx;
+  background: #E8F7F0;
+  color: #27ae60;
+  font-size: 24rpx;
+  font-weight: 600;
+  border-radius: 10rpx;
+  white-space: nowrap;
+}
+
+.ps-label {
+  font-size: 26rpx;
+  color: #666;
+  margin-right: 12rpx;
+}
+
+.ps-dropdown {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #F0F7FF;
+  border: 2rpx solid #BBDEFB;
+  border-radius: 8rpx;
+  padding: 12rpx 20rpx;
+}
+
+.ps-value {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #1565C0;
+}
+
+.ps-arrow {
+  font-size: 22rpx;
+  color: #1565C0;
+}
+
+.ps-menu {
+  background: #fff;
+  border-radius: 12rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.08);
+  overflow: hidden;
+  max-height: 720rpx;
+}
+
+/* 风险汇总栏 */
+.risk-summary {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 16rpx;
+}
+
+.risk-summary-item {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+  padding: 12rpx 24rpx;
+  border-radius: 12rpx;
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.risk-summary-item.high {
+  background: #FFEBEE;
+  color: #C62828;
+}
+
+.risk-summary-item.moderate {
+  background: #FFF8E1;
+  color: #E65100;
+}
+
+.rs-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+}
+
+.rs-dot.high { background: #E53935; }
+.rs-dot.moderate { background: #FF9800; }
+
+/* 患者计数警告 */
+.ps-count-warn {
+  color: #E53935;
+  font-weight: 600;
+}
+
+/* 风险圆点 */
+.ps-risk-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.ps-risk-dot.high { background: #E53935; }
+.ps-risk-dot.moderate { background: #FF9800; }
+.ps-risk-dot.normal { background: #4CAF50; }
+.ps-risk-dot.none { background: #E0E0E0; }
+
+/* 风险标签 */
+.ps-menu-right {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.ps-risk-label {
+  font-size: 20rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+  font-weight: 600;
+}
+
+.ps-risk-label.high { background: #FFEBEE; color: #C62828; }
+.ps-risk-label.moderate { background: #FFF8E1; color: #E65100; }
+.ps-risk-label.normal { background: #E8F5E9; color: #2E7D32; }
+.ps-risk-label.none { background: #F5F5F5; color: #999; }
+
+/* 搜索栏 */
+.ps-search-bar {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 20rpx;
+  background: #F8F9FB;
+  border-bottom: 1rpx solid #E8ECF0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.ps-search-icon {
+  font-size: 28rpx;
+  margin-right: 12rpx;
+  flex-shrink: 0;
+}
+
+.ps-search-input {
+  flex: 1;
+  height: 64rpx;
+  background: #fff;
+  border-radius: 32rpx;
+  padding: 0 24rpx;
+  font-size: 26rpx;
+  border: 1rpx solid #E0E0E0;
+}
+
+.ps-search-clear {
+  width: 48rpx;
+  height: 48rpx;
+  line-height: 48rpx;
+  text-align: center;
+  font-size: 28rpx;
+  color: #999;
+  margin-left: 12rpx;
+  flex-shrink: 0;
+}
+
+/* 患者计数 */
+.ps-count {
+  padding: 12rpx 28rpx;
+  font-size: 24rpx;
+  color: #999;
+  background: #F8F9FB;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+/* 可滚动列表 */
+.ps-scroll-list {
+  max-height: 560rpx;
+}
+
+.ps-menu-item.self-item {
+  background: #F0F7FF;
+  border-bottom: 2rpx solid #E0E0E0;
+}
+
+.ps-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 28rpx;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+.ps-menu-item:active {
+  background: #F5F9FF;
+}
+
+.ps-menu-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.ps-menu-name {
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 500;
+}
+
+.ps-menu-detail {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.ps-menu-text {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.ps-check {
+  font-size: 30rpx;
+  color: #07C160;
+  font-weight: 700;
+}
+
+.ps-menu-empty {
+  padding: 40rpx 28rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #999;
+}
+
+/* 报告头部 */
+.report-header {
+  background: #fff;
+  padding: 20rpx 24rpx;
+  border-radius: 16rpx;
+  margin-bottom: 24rpx;
+  border-left: 10rpx solid #27ae60;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+}
+
+.header-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 8rpx;
+}
+
+.patient-info {
+  display: flex;
+  justify-content: space-between;
+}
+
+.info-item {
+  font-size: 24rpx;
+  color: #666;
+}
+
+/* 通用卡片 */
+.section-card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+}
+
+.section-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 24rpx;
+  border-bottom: 2rpx solid #eee;
+  padding-bottom: 16rpx;
+}
+
+/* 血压分布布局 */
+.dist-layout {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-box {
+  width: 100%;
+  height: 400rpx;
+  margin-bottom: 20rpx;
+  background: #fff;
+}
+
+.dist-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.summary-list {
+  background: #f8f9fa;
+  padding: 20rpx;
+  border-radius: 12rpx;
+}
+
+.dist-legend {
+  display: flex;
+  justify-content: center;
+  gap: 24rpx;
+  margin-bottom: 16rpx;
+  font-size: 22rpx;
+  color: #666;
+}
+
+.summary-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+  font-size: 28rpx;
+}
+.summary-row:last-child { margin-bottom: 0; }
+
+.s-label { width: 200rpx; color: #666; font-weight: 500; }
+.s-val { flex: 1; font-weight: bold; color: #333; text-align: right; margin-right: 10rpx; }
+.s-val.warn { color: #d9534f; }
+.s-unit { width: 60rpx; color: #999; font-size: 24rpx; }
+
+/* 医生分析 */
+.analysis-card {
+  background: #F9FDFB;
+  border: 2rpx solid #E8F7F0;
+}
+
+.doctor-text {
+  font-size: 28rpx;
+  color: #444;
+  line-height: 1.6;
+}
+
+.report-line {
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.7;
+  margin-bottom: 8rpx;
+}
+.report-line.warn { color: #d9534f; font-weight: 500; }
+.report-line.advice { color: #27ae60; font-weight: 500; }
+
+/* ★ 改：报告按 ## 分区渲染成一张张独立卡片，而不是一整块无差别的文字墙 */
+.report-section {
+  margin-bottom: 28rpx;
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid #eee;
+}
+.report-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+
+.report-section-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #1a7a4c;
+  margin-bottom: 18rpx;
+  padding-left: 16rpx;
+  border-left: 6rpx solid #27ae60;
+}
+
+.report-h3 {
+  font-size: 26rpx;
+  font-weight: 600;
+  color: #555;
+  margin: 16rpx 0 10rpx;
+}
+
+/* 列表项：主结论加粗，补充数据(IQR/delta等)缩进、缩小、变浅色，减少"技术转储"感 */
+.report-li-block {
+  background: #F8FAF9;
+  border-radius: 10rpx;
+  padding: 16rpx 20rpx;
+  margin-bottom: 14rpx;
+}
+.report-li-block:last-child { margin-bottom: 0; }
+
+.report-li-label {
+  font-size: 27rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 6rpx;
+}
+
+.report-li-details {
+  font-size: 23rpx;
+  color: #999;
+  line-height: 1.8;
+}
+
+.report-img {
+  width: 100%;
+  border-radius: 12rpx;
+  border: 1rpx solid #eee;
+  margin: 16rpx 0;
+}
+
+.report-hr {
+  height: 1rpx;
+  background: #eee;
+  margin: 20rpx 0;
+}
+
+.disclaimer {
+  margin-top: 20rpx;
+  font-size: 20rpx;
+  color: #ccc;
+  text-align: right;
+}
+
+/* 图表区 (复用样式) */
+.chart-wrapper { display: flex; height: 320rpx; position: relative; }
+.chart-scroll { flex: 1; height: 320rpx; overflow: hidden; }
+.chart-legend { display: flex; justify-content: center; gap: 30rpx; margin-top: 10rpx; }
+.legend-item { font-size: 24rpx; color: #666; display: flex; align-items: center; }
+.dot { width: 12rpx; height: 12rpx; border-radius: 50%; margin-right: 8rpx; }
+.dot.red { background: #FF6B6B; }
+.dot.dist-red { background: #d9534f; }
+.dot.dist-blue { background: #4A90E2; }
+
+/* 表格 */
+.table-header {
+  display: flex;
+  background: #f8f9fa;
+  padding: 16rpx;
+  font-size: 24rpx;
+  color: #666;
+  font-weight: bold;
+}
+
+.th, .td { flex: 1; text-align: center; }
+.th:first-child, .td:first-child { flex: 1.5; text-align: left; }
+
+.table-row {
+  display: flex;
+  padding: 20rpx 16rpx;
+  border-bottom: 1rpx solid #eee;
+  font-size: 26rpx;
+  color: #333;
+}
+.table-row.even { background: #fafafa; }
+
+.td.bold { font-weight: bold; }
+.td.warn { color: #ff4d4f; }
+
+/* 加载更多 */
+.ps-load-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx;
+  gap: 12rpx;
+  font-size: 24rpx;
+  color: #999;
+}
+
+.ps-spinner {
+  width: 32rpx;
+  height: 32rpx;
+  border: 4rpx solid #E0E0E0;
+  border-top-color: #4285F4;
+  border-radius: 50%;
+  animation: ps-spin 0.8s linear infinite;
+}
+
+@keyframes ps-spin {
+  to { transform: rotate(360deg); }
+}
+
+.ps-load-tip {
+  font-size: 24rpx;
+  color: #B0B0B0;
+}

@@ -1,0 +1,358 @@
+page {
+  background: #f5f6f8;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.fd-container {
+  padding: 20rpx 24rpx 80rpx;
+}
+
+/* ====== 预警横幅 ====== */
+.alert-banner {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 28rpx;
+  border-radius: 16rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,0.06);
+}
+
+.alert-banner.moderate {
+  background: linear-gradient(135deg, #FFF8E1, #FFF3C4);
+  border: 2rpx solid #FFD54F;
+}
+
+.alert-banner.high {
+  background: linear-gradient(135deg, #FFEBEE, #FFCDD2);
+  border: 2rpx solid #EF9A9A;
+}
+
+.alert-icon {
+  font-size: 44rpx;
+  margin-right: 16rpx;
+  flex-shrink: 0;
+}
+
+.alert-body {
+  flex: 1;
+}
+
+.alert-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  display: block;
+  margin-bottom: 6rpx;
+}
+
+.alert-banner.moderate .alert-title { color: #E65100; }
+.alert-banner.high .alert-title { color: #C62828; }
+
+.alert-text {
+  font-size: 24rpx;
+  color: #666;
+  line-height: 1.5;
+}
+
+.alert-refresh {
+  font-size: 36rpx;
+  color: #999;
+  margin-left: 12rpx;
+  flex-shrink: 0;
+}
+
+/* ====== 患者卡片 ====== */
+.fd-patient-card {
+  display: flex;
+  align-items: center;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+
+/* ====== 已绑定患者横幅 ====== */
+.bound-banner {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  background: linear-gradient(90deg, #E8F5E9, #F1FBF4);
+  border: 1rpx solid #C8E6C9;
+  padding: 18rpx 22rpx;
+  border-radius: 12rpx;
+  margin-bottom: 18rpx;
+}
+.bound-label {
+  font-size: 24rpx;
+  color: #2E7D32;
+  font-weight: 600;
+}
+.bound-name {
+  font-size: 28rpx;
+  color: #145A32;
+  font-weight: 800;
+}
+
+.fd-avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  background: #E8F0FE;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 44rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+
+.fd-patient-info {
+  flex: 1;
+}
+
+.fd-patient-name {
+  font-size: 34rpx;
+  font-weight: 700;
+  color: #1a3a6b;
+  display: block;
+}
+
+.fd-patient-id {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.fd-risk-badge {
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  font-size: 22rpx;
+  font-weight: 600;
+}
+
+.fd-risk-badge.normal { background: #E8F5E9; color: #2E7D32; }
+.fd-risk-badge.moderate { background: #FFF3E0; color: #E65100; }
+.fd-risk-badge.high { background: #FFEBEE; color: #C62828; }
+
+/* ====== 统计网格 ====== */
+.fd-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16rpx;
+  margin-bottom: 20rpx;
+}
+
+.fd-stat-item {
+  background: #fff;
+  border-radius: 14rpx;
+  padding: 24rpx 20rpx;
+  text-align: center;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+
+.fd-stat-val {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #333;
+  display: block;
+}
+
+.fd-stat-val.warn { color: #C62828; }
+
+.fd-stat-label {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 6rpx;
+}
+
+/* ====== 通用区块 ====== */
+.fd-section {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+}
+
+.fd-section-title {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 20rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 2rpx solid #f0f0f0;
+}
+
+/* ====== 图表 ====== */
+.fd-chart-wrapper {
+  display: flex;
+  height: 320rpx;
+  position: relative;
+}
+
+.fd-y-axis {
+  width: 60rpx;
+  height: 300rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-right: 10rpx;
+  padding-top: 10rpx;
+  padding-bottom: 30rpx;
+  font-size: 24rpx;
+  color: #333;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.fd-chart-scroll {
+  flex: 1;
+  height: 320rpx;
+  overflow: hidden;
+}
+
+.fd-chart-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.fd-chart-legend {
+  display: flex;
+  justify-content: center;
+  gap: 30rpx;
+  margin-top: 12rpx;
+}
+
+.fd-legend-item {
+  font-size: 24rpx;
+  color: #666;
+  display: flex;
+  align-items: center;
+}
+
+.fd-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  margin-right: 8rpx;
+}
+
+.fd-dot.red { background: #FF6B6B; }
+.fd-dot.blue { background: #4A90E2; }
+
+.fd-chart-empty {
+  padding: 40rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #999;
+}
+
+/* ====== 读数列表 ====== */
+.fd-log-list { }
+
+.fd-log-item {
+  display: flex;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.fd-log-item:last-child { border-bottom: none; }
+
+.fd-log-item.abnormal {
+  background: #FFF8F8;
+  margin: 0 -28rpx;
+  padding: 20rpx 28rpx;
+  border-radius: 8rpx;
+}
+
+.fd-log-date {
+  font-size: 24rpx;
+  color: #999;
+  width: 160rpx;
+  flex-shrink: 0;
+}
+
+.fd-log-values {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 4rpx;
+}
+
+.fd-log-sbp {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #E53935;
+}
+
+.fd-log-sep {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.fd-log-dbp {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #1E88E5;
+}
+
+.fd-log-flag {
+  font-size: 22rpx;
+  padding: 6rpx 14rpx;
+  border-radius: 16rpx;
+  background: #FFEBEE;
+  color: #C62828;
+}
+
+.fd-log-flag.normal {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+/* ====== 分析文本 ====== */
+.fd-analysis {
+  background: #F9FDFB;
+  border: 2rpx solid #E8F7F0;
+}
+
+.fd-analysis-text {
+  font-size: 28rpx;
+  color: #444;
+  line-height: 1.7;
+}
+
+.fd-analysis-line {
+  margin-bottom: 10rpx;
+}
+
+.fd-analysis-line.advice {
+  color: #27ae60;
+  font-weight: 500;
+}
+
+.fd-analysis-time {
+  font-size: 20rpx;
+  color: #ccc;
+  display: block;
+  margin-top: 16rpx;
+}
+
+/* ====== 底部按钮 ====== */
+.fd-actions {
+  margin-top: 20rpx;
+  padding: 0 4rpx;
+}
+
+.fd-btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: #fff;
+  border: 2rpx solid #E0E0E0;
+  border-radius: 16rpx;
+  font-size: 30rpx;
+  color: #666;
+  font-weight: 500;
+}

@@ -1,0 +1,250 @@
+/* pages/family/family/family.wxss */
+
+.container {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #F6FFF8 0%, #F0F7F2 30%, #FFFFFF 100%);
+  padding: 40rpx 36rpx;
+  box-sizing: border-box;
+}
+
+/* ========== 顶部标题 ========== */
+.header {
+  margin-bottom: 36rpx;
+  padding-top: 20rpx;
+}
+
+.title {
+  display: block;
+  font-size: 52rpx;
+  font-weight: 800;
+  color: #1B5E20;
+  letter-spacing: 4rpx;
+}
+
+.subtitle {
+  display: block;
+  font-size: 28rpx;
+  color: #66BB6A;
+  margin-top: 12rpx;
+  letter-spacing: 2rpx;
+}
+
+/* ========== 邀请卡片 ========== */
+.invite-card {
+  background: #FFFFFF;
+  border-radius: 32rpx;
+  padding: 56rpx 40rpx 44rpx;
+  box-shadow: 0 4rpx 32rpx rgba(0, 0, 0, 0.06);
+  text-align: center;
+}
+
+/* 头部图标 */
+.invite-icon-wrap {
+  margin-bottom: 28rpx;
+}
+
+.invite-icon {
+  font-size: 80rpx;
+  line-height: 1;
+}
+
+/* 主标题 */
+.invite-title {
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #212121;
+  display: block;
+  margin-bottom: 20rpx;
+  line-height: 1.4;
+}
+
+/* 说明文字 */
+.invite-desc {
+  font-size: 28rpx;
+  color: #757575;
+  display: block;
+  margin-bottom: 44rpx;
+  line-height: 1.8;
+  padding: 0 10rpx;
+}
+
+/* ========== 步骤引导 (垂直布局) ========== */
+.steps-box {
+  background: #F1F8E9;
+  border-radius: 20rpx;
+  padding: 32rpx 28rpx;
+  margin-bottom: 40rpx;
+  text-align: left;
+}
+
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 14rpx 0;
+}
+
+.step-num {
+  width: 48rpx;
+  height: 48rpx;
+  min-width: 48rpx;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #07C160, #05A050);
+  color: #FFFFFF;
+  font-size: 26rpx;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step-text {
+  font-size: 30rpx;
+  color: #33691E;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.step-line {
+  width: 2rpx;
+  height: 20rpx;
+  background: #A5D6A7;
+  margin-left: 23rpx;
+}
+
+/* ========== 分享按钮 ========== */
+.share-btn {
+  width: 100%;
+  height: 104rpx;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFFFFF;
+  font-size: 38rpx;
+  font-weight: 700;
+  border-radius: 48rpx;
+  border: none;
+  margin-bottom: 28rpx;
+  box-sizing: border-box;
+  letter-spacing: 2rpx;
+}
+
+.share-btn::after {
+  border: none;
+}
+
+/* 家人按钮 */
+.family-btn {
+  background: linear-gradient(135deg, #07C160, #05A050);
+  box-shadow: 0 12rpx 32rpx rgba(7, 193, 96, 0.30);
+}
+
+/* ★ 新增：医生按钮——之前 wxml 里引用了 doctor-btn 这个类，
+   但 wxss 里从未定义过，只继承了 .share-btn 的白色文字、没有背景色，
+   导致按钮几乎"隐形"（白字配浅色卡片背景）。
+   这里用蓝色系配色，呼应 🩺/💙 医生主题，和绿色的家人按钮区分开。 */
+.doctor-btn {
+  background: linear-gradient(135deg, #2196F3, #1565C0);
+  box-shadow: 0 12rpx 32rpx rgba(33, 150, 243, 0.30);
+}
+
+/* ========== 底部提示 ========== */
+.invite-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8rpx;
+}
+
+.invite-tip-icon {
+  font-size: 24rpx;
+}
+
+.invite-tip {
+  font-size: 26rpx;
+  color: #9E9E9E;
+  line-height: 1.5;
+}
+
+/* ========== 品牌底部 ========== */
+.brand-footer {
+  margin-top: 60rpx;
+  text-align: center;
+}
+
+.brand-text {
+  font-size: 24rpx;
+  color: #BDBDBD;
+  letter-spacing: 2rpx;
+}
+
+/* ========== 已绑定列表(原独立"绑定管理"页面样式，合并至此) ========== */
+.bindings-section {
+  margin-top: 44rpx;
+  padding-top: 36rpx;
+  border-top: 2rpx solid #F0F0F0;
+  text-align: left;
+}
+
+.bindings-title {
+  font-size: 28rpx;
+  font-weight: 700;
+  color: #333;
+  margin-bottom: 16rpx;
+}
+
+.bindings-loading {
+  text-align: center;
+  color: #999;
+  font-size: 26rpx;
+  padding: 40rpx 0;
+}
+
+.empty-tip {
+  background: #F6F7F9;
+  border-radius: 16rpx;
+  padding: 32rpx 0;
+  text-align: center;
+  color: #bbb;
+  font-size: 26rpx;
+}
+
+.binding-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #F6F7F9;
+  border-radius: 16rpx;
+  padding: 22rpx 24rpx;
+  margin-bottom: 14rpx;
+}
+
+.binding-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.binding-name {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+.binding-sub {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 4rpx;
+}
+
+.unbind-btn {
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: #FF4D4F;
+  padding: 8rpx 20rpx;
+  border: 1rpx solid #FFCCC7;
+  border-radius: 30rpx;
+  margin-left: 16rpx;
+}

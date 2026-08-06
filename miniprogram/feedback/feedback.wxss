@@ -1,0 +1,449 @@
+/* pages/feedback/feedback.wxss */
+
+page {
+  background-color: #F6F7F9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, sans-serif;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+/* ── 顶部导航 ── */
+/* navigationStyle 改成 custom 之后要自己控制导航栏，
+   不再用 flex space-between 自动分配空间（会跟胶囊按钮的位置对不齐、挤在一起），
+   改成绝对定位：返回按钮贴左、标题真正居中、图标组贴右——
+   每个元素的垂直位置由 JS 算出来的 headerContentCenterY 精确控制，
+   保证跟微信原生胶囊按钮上下对齐 */
+.header {
+  position: relative;
+  background: #fff;
+  border-bottom: 2rpx solid #F0F0F0;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.back-btn {
+  position: absolute;
+  left: 24rpx;
+  transform: translateY(-50%);
+  font-size: 48rpx;
+  color: #27ae60;
+  width: 60rpx;
+  text-align: center;
+}
+
+.title {
+  position: absolute;
+  left: 90rpx;
+  transform: translateY(-50%);
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: #000;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── 当前医生线切换条 ── */
+.doctor-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 16rpx 24rpx;
+  background: #EAF4FF;
+  border-bottom: 2rpx solid #F0F0F0;
+}
+
+.doctor-bar-icon {
+  font-size: 26rpx;
+}
+
+.doctor-bar-text {
+  flex: 1;
+  font-size: 26rpx;
+  color: #1890ff;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.doctor-bar-arrow {
+  font-size: 24rpx;
+  color: #1890ff;
+}
+
+.doctor-bar.switchable {
+  /* 只是视觉上保留，真正的可点击提示交给箭头即可，避免不可切换时误以为能点 */
+}
+
+/* ── 空状态 / 加载中 ── */
+.state-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding-bottom: 100rpx;
+}
+
+.state-icon {
+  font-size: 80rpx;
+  margin-bottom: 20rpx;
+}
+
+.state-text {
+  font-size: 32rpx;
+  color: #888;
+  font-weight: 600;
+}
+
+.state-sub {
+  font-size: 26rpx;
+  color: #bbb;
+  text-align: center;
+  margin-top: 16rpx;
+  line-height: 1.6;
+}
+
+/* ── 反馈列表 ── */
+.feed-list {
+  flex: 1;
+  padding: 20rpx 24rpx 40rpx;
+}
+
+.feed-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 20rpx;
+  background: #fff;
+  border-radius: 20rpx;
+  padding: 28rpx 30rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.05);
+}
+
+.feed-card.mine {
+  border-left: 6rpx solid #27ae60;
+}
+
+.feed-card.other {
+  border-left: 6rpx solid #E8E8E8;
+}
+
+.feed-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── 管理模式复选框 ── */
+.feed-checkbox {
+  flex-shrink: 0;
+  width: 40rpx;
+  height: 40rpx;
+  margin-top: 4rpx;
+  border-radius: 50%;
+  border: 2rpx solid #ccc;
+  box-sizing: border-box;
+}
+
+.feed-checkbox.checked {
+  background: #27ae60;
+  border-color: #27ae60;
+  position: relative;
+}
+
+.feed-checkbox.checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+/* ── 卡片头部 ── */
+.feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.role-tag {
+  font-size: 24rpx;
+  font-weight: 700;
+  padding: 6rpx 18rpx;
+  border-radius: 20rpx;
+}
+
+.role-doctor {
+  background: #EAF4FF;
+  color: #1890ff;
+}
+
+.role-family {
+  background: #E8F7F0;
+  color: #27ae60;
+}
+
+.role-patient {
+  background: #FFF3E0;
+  color: #FF9800;
+}
+
+.feed-time {
+  font-size: 24rpx;
+  color: #bbb;
+}
+
+/* ── 反馈内容 ── */
+.feed-content {
+  font-size: 30rpx;
+  color: #333;
+  line-height: 1.7;
+  display: block;
+}
+
+/* ── 顶部右侧按钮组 ── */
+.header-right {
+  position: absolute;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+}
+
+.refresh-btn {
+  font-size: 44rpx;
+  color: #27ae60;
+  width: 60rpx;
+  text-align: center;
+}
+
+.send-btn {
+  font-size: 44rpx;
+  color: #27ae60;
+  width: 60rpx;
+  text-align: center;
+}
+
+.manage-btn {
+  font-size: 40rpx;
+  color: #999;
+  width: 60rpx;
+  text-align: center;
+}
+
+.manage-btn.active {
+  color: #e74c3c;
+}
+
+/* ── 管理模式底部操作栏 ── */
+.manage-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20rpx 24rpx;
+  background: #fff;
+  border-top: 2rpx solid #F0F0F0;
+  box-shadow: 0 -4rpx 16rpx rgba(0, 0, 0, 0.05);
+}
+
+.manage-count {
+  font-size: 26rpx;
+  color: #888;
+}
+
+.manage-actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.btn-clear-all {
+  height: 68rpx;
+  line-height: 68rpx;
+  padding: 0 24rpx;
+  font-size: 26rpx;
+  background: #F5F5F5;
+  color: #e74c3c;
+  border-radius: 12rpx;
+  border: none;
+}
+
+.btn-delete-selected {
+  height: 68rpx;
+  line-height: 68rpx;
+  padding: 0 24rpx;
+  font-size: 26rpx;
+  background: #e74c3c;
+  color: #fff;
+  border-radius: 12rpx;
+  border: none;
+}
+
+/* ── 弹窗遮罩 ── */
+.modal-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── 弹窗内容 ── */
+.modal-content {
+  width: 85%;
+  max-height: 80vh;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 40rpx 36rpx;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 36rpx;
+}
+
+.modal-title {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #000;
+}
+
+.modal-close {
+  font-size: 44rpx;
+  color: #999;
+  padding: 10rpx;
+}
+
+/* ── 医生选择弹窗 ── */
+.doctor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.doctor-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx;
+  border-radius: 16rpx;
+  background: #F6F7F9;
+  border: 2rpx solid transparent;
+}
+
+.doctor-option.selected {
+  background: #E8F7F0;
+  border-color: #27ae60;
+}
+
+.doctor-option-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.doctor-option-name {
+  display: block;
+  font-size: 30rpx;
+  color: #333;
+  font-weight: 600;
+}
+
+.doctor-option-sub {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 6rpx;
+}
+
+.doctor-option-check {
+  font-size: 32rpx;
+  color: #27ae60;
+  font-weight: 700;
+  margin-left: 16rpx;
+}
+
+/* ── 表单项 ── */
+.modal-field {
+  margin-bottom: 28rpx;
+}
+
+.field-label {
+  display: block;
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 12rpx;
+  font-weight: 600;
+}
+
+.field-textarea {
+  width: 100%;
+  min-height: 200rpx;
+  border: 2rpx solid #E0E0E0;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  font-size: 30rpx;
+  box-sizing: border-box;
+}
+
+.char-count {
+  display: block;
+  text-align: right;
+  font-size: 24rpx;
+  color: #bbb;
+  margin-top: 8rpx;
+}
+
+/* ── 弹窗按钮 ── */
+.modal-buttons {
+  display: flex;
+  gap: 24rpx;
+  margin-top: 36rpx;
+}
+
+.btn-cancel {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  background: #F5F5F5;
+  color: #666;
+  border-radius: 16rpx;
+  font-size: 32rpx;
+  border: none;
+}
+
+.btn-send {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  background: #27ae60;
+  color: #fff;
+  border-radius: 16rpx;
+  font-size: 32rpx;
+  border: none;
+}
+
+.btn-send[loading] {
+  opacity: 0.7;
+}

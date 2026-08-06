@@ -1,7 +1,7 @@
 # app/engine/emergency.py
 """
 新版 emergency.py
-职责：从血压时间序列中提取“急性动力学信号”，供 risk_level.py 使用。
+职责：从血压时间序列中提取"急性动力学信号"，供 risk_level.py 使用。
 不做风险分层，不做语言解释。
 """
 
@@ -47,7 +47,7 @@ def _compute_short_term_changes(records: List[Dict], hours: int = 48):
     # 使用 get 方法安全获取，如果 pp 不存在则尝试现场计算，或使用默认值防止崩溃
     dsbp = latest.get("sbp", 120) - ref.get("sbp", 120)
     ddbp = latest.get("dbp", 80) - ref.get("dbp", 80)
-    
+
     latest_pp = latest.get("pp", latest.get("sbp", 120) - latest.get("dbp", 80))
     ref_pp = ref.get("pp", ref.get("sbp", 120) - ref.get("dbp", 80))
     dpp = latest_pp - ref_pp
@@ -81,7 +81,7 @@ def _detect_synchronous_shift(changes: Dict[str, float]):
 
 def _detect_instability(steady_result: Dict[str, Any]):
     """
-    判断最近稳态段是否出现“稳定性下降”
+    判断最近稳态段是否出现"稳定性下降"
     """
     segments = steady_result.get("segments", [])
     if len(segments) < 2:
@@ -113,7 +113,7 @@ def analyze_emergency(records, steady_result) -> Dict[str, Any]:
     # 3) 稳态失稳
     instability = _detect_instability(steady_result)
 
-    # 4) 是否存在“急性动力学事件”
+    # 4) 是否存在"急性动力学事件"
     emergency_flag = (
         abs(changes["dsbp"]) >= 20
         or abs(changes["ddbp"]) >= 15
@@ -126,5 +126,5 @@ def analyze_emergency(records, steady_result) -> Dict[str, Any]:
         "short_term_changes": changes,       # {'dsbp': x, 'ddbp': y, 'dpp': z}
         "synchronous_shift": sync,           # True / False
         "instability": instability,          # True / False
-        "emergency": emergency_flag,         # True / False（仅表示“存在急性动力学事件”）
+        "emergency": emergency_flag,         # True / False（仅表示"存在急性动力学事件"）
     }

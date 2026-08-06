@@ -1,0 +1,200 @@
+page {
+  background-color: #F6F7F9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, sans-serif;
+}
+
+.container {
+  padding: 40rpx 30rpx;
+}
+
+.header {
+  margin-bottom: 50rpx;
+  text-align: center;
+}
+
+.title {
+  font-size: 64rpx;
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 16rpx;
+}
+
+.subtitle {
+  font-size: 36rpx;
+  color: #333;
+  font-weight: 500;
+  display: block;
+}
+
+.card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 0 40rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.03);
+  margin-bottom: 30rpx;
+}
+
+.form-item {
+  display: flex;
+  align-items: center;
+  height: 110rpx;
+}
+
+.divider {
+  height: 1rpx;
+  background: #F0F0F0;
+}
+
+.label {
+  width: 240rpx;
+  font-size: 34rpx;
+  color: #333;
+  font-weight: 500;
+}
+
+.required {
+  color: #FA5151;
+  font-size: 28rpx;
+  font-weight: normal;
+}
+
+.input {
+  flex: 1;
+  width: 0;
+  min-height: 60rpx;
+  font-size: 34rpx;
+  color: #333;
+  text-align: right;
+  line-height: 60rpx;
+  overflow: visible;
+}
+.input.locked {
+  color: #888;
+  background: transparent;
+}
+
+.lock-icon {
+  font-size: 28rpx;
+  margin-left: 10rpx;
+}
+.placeholder {
+  color: #CCC;
+}
+
+.gender-group {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 20rpx;
+}
+
+.gender-btn {
+  padding: 10rpx 40rpx;
+  background: #F5F5F5;
+  color: #666;
+  border-radius: 30rpx;
+  font-size: 32rpx;
+  transition: all 0.2s;
+}
+
+.gender-btn.active {
+  background: #E8F7F0;
+  color: #07C160;
+  font-weight: 500;
+}
+
+.section-title {
+  padding-top: 40rpx;
+  font-size: 36rpx;
+  font-weight: 600;
+  margin-bottom: 24rpx;
+  color: #333;
+}
+
+.tags-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx;
+  padding-bottom: 40rpx;
+}
+
+.tag {
+  padding: 14rpx 30rpx;
+  background: #F5F5F5;
+  color: #666;
+  border-radius: 40rpx;
+  font-size: 30rpx;
+}
+
+.tag.selected {
+  background: #E8F7F0;
+  color: #07C160;
+  border: 2rpx solid #07C160;
+  padding: 12rpx 28rpx; /* border took 2rpx */
+}
+
+.agreement-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 40rpx;
+  margin-bottom: 20rpx;
+}
+
+.checkbox {
+  width: 40rpx;
+  height: 40rpx;
+  border: 2rpx solid #CCC;
+  border-radius: 8rpx;
+  margin-right: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  transition: all 0.2s;
+}
+
+.checkbox.checked {
+  background: #07C160;
+  border-color: #07C160;
+}
+
+.checkmark {
+  color: #fff;
+  font-size: 24rpx;
+}
+
+.agreement-text {
+  font-size: 32rpx;
+  color: #666;
+}
+
+.btn-submit {
+  margin-top: 40rpx;
+  background: #07C160;
+  color: #fff;
+  border-radius: 50rpx;
+  font-size: 40rpx;
+  font-weight: bold;
+  box-shadow: 0 10rpx 20rpx rgba(7, 193, 96, 0.2);
+}
+
+.btn-submit.disabled {
+  background: #AADFC4;
+  box-shadow: none;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.disclaimer {
+  margin-top: 30rpx;
+  padding: 0 40rpx;
+  text-align: center;
+}
+
+.disclaimer text {
+  font-size: 24rpx;
+  color: #FA5151;
+  line-height: 1.5;
+  white-space: normal;
+}

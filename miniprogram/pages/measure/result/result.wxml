@@ -1,0 +1,82 @@
+<!-- pages/measure/result/result.wxml -->
+<view class="container">
+
+<!-- 风险状态卡片 -->
+<view class="risk-card {{riskLevel}}">
+  <text class="risk-label">{{riskLabel}}</text>
+  <text class="risk-sub">基于您的个人健康档案分析</text>
+</view>
+
+<!-- 统计摘要（30天） -->
+<view class="section-card">
+  <view class="section-title">📊 30天概览</view>
+  <view class="stat-row">
+    <view class="stat-item">
+      <text class="stat-val">{{stats.maxSbp}}</text>
+      <text class="stat-label">最高收缩压</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-val">{{stats.minDbp}}</text>
+      <text class="stat-label">最低舒张压</text>
+    </view>
+    <view class="stat-item">
+      <text class="stat-val warn">{{stats.abnormalRate}}%</text>
+      <text class="stat-label">异常率</text>
+    </view>
+  </view>
+</view>
+
+<!-- 血压趋势（近2周） -->
+<view class="section-card">
+  <view class="section-title">📈 血压趋势（近2周）</view>
+  <view class="chart-wrapper">
+    <canvas type="2d" id="trendChart" class="chart-canvas" style="width: {{trendCanvasWidth}}px; height: 300rpx;"></canvas>
+  </view>
+  <view class="chart-legend">
+    <view class="legend-item"><view class="dot red"></view>收缩压</view>
+    <view class="legend-item"><view class="dot blue"></view>舒张压</view>
+  </view>
+</view>
+
+<!-- 文字报告 -->
+<view class="report-card">
+  <view class="report-text">
+    <block wx:for="{{userLines}}" wx:key="index">
+      <view class="report-line-wrap">
+        <block wx:for="{{item.segments}}" wx:for-item="seg" wx:key="index">
+          <text class="{{seg.emphasis ? 'emphasis' : ''}}">{{seg.text}}</text>
+        </block>
+      </view>
+    </block>
+  </view>
+</view>
+
+<!-- 近期测量记录（近2周，含脉压差） -->
+<view class="section-card">
+  <view class="section-title">📋 近期记录（近2周）</view>
+  <view class="record-list">
+    <block wx:for="{{records}}" wx:key="index">
+      <view class="record-row">
+        <view class="record-time">{{item.dateSimple}}</view>
+        <view class="record-values">
+          <text class="v-sbp">{{item.sbp}}</text>
+          <text class="v-sep">/</text>
+          <text class="v-dbp">{{item.dbp}}</text>
+          <text class="v-pp">脉压差 {{item.pp}}</text>
+        </view>
+        <view class="record-badge {{item.abnormal ? 'abnormal' : 'normal'}}">
+          {{item.abnormal ? '异常' : '正常'}}
+        </view>
+      </view>
+    </block>
+    <view class="record-empty" wx:if="{{records.length === 0}}">近2周暂无测量记录</view>
+  </view>
+</view>
+
+<!-- 底部按钮 -->
+<view class="footer-btns">
+  <button class="btn-secondary" bindtap="goBack">再测一次</button>
+  <button class="btn-primary" bindtap="goHome">返回首页</button>
+</view>
+
+</view>

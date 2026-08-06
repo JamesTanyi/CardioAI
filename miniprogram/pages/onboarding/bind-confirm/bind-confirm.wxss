@@ -1,0 +1,149 @@
+/* pages/onboarding/bind-confirm/bind-confirm.wxss */
+/* ★ 注：未看到项目现有主题色/字号规范，这里用中性配色打底，
+   建议对照 intro.wxss / family.wxss 的配色和字体调整统一风格 */
+
+.bc-container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 60rpx 40rpx;
+  box-sizing: border-box;
+  background: #F7F8FA;
+}
+
+.bc-loading {
+  text-align: center;
+}
+.bc-loading-text {
+  font-size: 28rpx;
+  color: #999;
+}
+
+.bc-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.bc-error-icon {
+  font-size: 64rpx;
+  margin-bottom: 20rpx;
+}
+.bc-error-text {
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 40rpx;
+}
+.bc-btn-skip {
+  background: #F0F0F0;
+  color: #666;
+  font-size: 28rpx;
+  border-radius: 44rpx;
+  padding: 0 48rpx;
+}
+
+.bc-body {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.bc-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 40rpx;
+}
+
+.bc-patient-card {
+  width: 100%;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 40rpx 32rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-shadow: 0 4rpx 24rpx rgba(0,0,0,0.06);
+  margin-bottom: 32rpx;
+}
+.bc-patient-avatar {
+  font-size: 64rpx;
+  margin-bottom: 16rpx;
+}
+.bc-patient-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 12rpx;
+}
+.bc-patient-summary {
+  font-size: 26rpx;
+  color: #888;
+}
+
+.bc-tip {
+  font-size: 24rpx;
+  color: #999;
+  text-align: center;
+  margin-bottom: 48rpx;
+  line-height: 1.6;
+}
+
+.bc-actions {
+  width: 100%;
+  display: flex;
+  gap: 24rpx;
+}
+.bc-btn-reject {
+  flex: 1;
+  background: #F0F0F0;
+  color: #666;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+}
+.bc-btn-confirm {
+  flex: 1.5;
+  background: #FF6B6B;
+  color: #fff;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+}
+.bc-btn-confirm[disabled] {
+  background: #FFC2C2;
+  color: #fff;
+}
+
+/* ========== 姓名/科室/医院输入表单 ========== */
+.bc-form {
+  width: 100%;
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 8rpx 32rpx;
+  box-shadow: 0 4rpx 24rpx rgba(0,0,0,0.06);
+  margin-bottom: 32rpx;
+  box-sizing: border-box;
+}
+
+.bc-form-item {
+  padding: 24rpx 0;
+  border-bottom: 2rpx solid #F5F5F5;
+}
+.bc-form-item:last-child {
+  border-bottom: none;
+}
+
+.bc-form-label {
+  display: block;
+  font-size: 24rpx;
+  color: #999;
+  margin-bottom: 12rpx;
+}
+
+.bc-form-input {
+  font-size: 30rpx;
+  color: #222;
+  height: 44rpx;
+  line-height: 44rpx;
+}

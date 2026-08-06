@@ -1,0 +1,30 @@
+<view class="page-container">
+  <view class="card">
+    <view class="card-title">历史数据导入/上传</view>
+    <view class="card-body">
+      <view class="row">
+        <text class="label">当前文件</text>
+        <text class="value {{selectedFileName ? 'file-selected' : ''}}">{{selectedFileName || '未选择文件'}}</text>
+      </view>
+      <!-- ★ 改：支持范围改为 Excel(.xlsx)/CSV(.csv)，所有解析都在后端完成 -->
+      <view class="tip">支持 Excel(.xlsx) / CSV(.csv) 文件，表头需包含：日期、时间、收缩压、舒张压（必填），心率（可选）。</view>
+      <view class="template-section">
+        <text class="template-label">📋 不清楚格式？</text>
+        <!-- ★ 改：downloadTemplate → showTemplateInfo，函数名已在 upload.js 中重命名 -->
+        <text class="template-link" bindtap="showTemplateInfo">查看格式说明</text>
+      </view>
+      <view class="import-guide">
+        <text class="guide-title">📥 导入步骤</text>
+        <text class="guide-step">1. 将 Excel/CSV 文件发送到微信「文件传输助手」</text>
+        <text class="guide-step">2. 返回本页面，点击「选择历史文件」</text>
+        <text class="guide-step">3. 在聊天文件中选择刚刚发送的文件</text>
+      </view>
+      <!-- ★ 改：删除进度条——upload.js 重写后不再维护 uploadProgress 这个字段，
+           批量导入走单次整份上传，没有可追踪的分段进度，用 loading 态代替即可 -->
+      <view class="status {{uploadStatus.indexOf('失败') !== -1 ? 'status-error' : ''}} {{uploadStatus.indexOf('完成') !== -1 ? 'status-success' : ''}}" wx:if="{{uploadStatus}}">{{uploadStatus}}</view>
+    </view>
+  </view>
+
+  <button class="btn-primary" bindtap="chooseHistoryFile">选择历史文件</button>
+  <button class="btn-primary {{uploading ? 'btn-disabled' : ''}}" bindtap="uploadHistory" loading="{{uploading}}" disabled="{{uploading}}">上传文件</button>
+</view>

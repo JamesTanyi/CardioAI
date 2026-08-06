@@ -1,0 +1,130 @@
+<!-- pages/family/family/family.wxml -->
+<view class="container">
+
+<!-- 顶部标题 -->
+<view class="header">
+  <text class="title">健康监护</text>
+  <text class="subtitle">连接家人与医生，共同守护心血管健康</text>
+</view>
+
+<!-- ==================== 家人监护 Tab ==================== -->
+<view class="invite-card" wx:if="{{activeTab === 'family'}}">
+  <view class="invite-icon-wrap">
+    <text class="invite-icon">❤️</text>
+  </view>
+  <text class="invite-title">邀请家人关注我的健康</text>
+  <text class="invite-desc">
+    分享给家人微信，对方点开卡片后确认绑定，
+    即可长期查看您的心血管健康数据
+  </text>
+
+  <view class="steps-box">
+    <view class="step-row">
+      <view class="step-num">1</view>
+      <text class="step-text">点击下方「发送给微信家人」按钮</text>
+    </view>
+    <view class="step-line"></view>
+    <view class="step-row">
+      <view class="step-num">2</view>
+      <text class="step-text">在微信通讯录中选择要邀请的家人</text>
+    </view>
+    <view class="step-line"></view>
+    <view class="step-row">
+      <view class="step-num">3</view>
+      <text class="step-text">对方点击卡片并确认绑定，即可长期查看</text>
+    </view>
+  </view>
+
+  <!-- ★ 真正的分享按钮：点击后弹出微信联系人选择面板 -->
+  <button class="share-btn family-btn" open-type="share">💚 发送给微信家人</button>
+
+  <view class="invite-footer">
+    <text class="invite-tip-icon">💡</text>
+    <text class="invite-tip">可重复发送给多位家人，人数无限制</text>
+  </view>
+  <!-- ★ 新增：已绑定家属列表 + 解绑(原独立"绑定管理"页面功能合并至此) -->
+  <view class="bindings-section">
+    <view class="bindings-title">👨‍👩‍👧 已绑定家属</view>
+    <view class="bindings-loading" wx:if="{{bindingsLoading}}">加载中...</view>
+    <block wx:else>
+      <view class="empty-tip" wx:if="{{familyList.length === 0}}">还没有绑定任何家属</view>
+      <view class="binding-card" wx:for="{{familyList}}" wx:key="viewerId">
+        <view class="binding-info">
+          <text class="binding-name">{{item.name}}</text>
+        </view>
+        <view
+          class="unbind-btn"
+          catchtap="unbindFamily"
+          data-viewer-id="{{item.viewerId}}"
+          data-name="{{item.name}}"
+        >解绑</view>
+      </view>
+    </block>
+  </view>
+</view>
+
+<!-- ==================== 绑定医生 Tab ==================== -->
+<view class="invite-card" wx:if="{{activeTab === 'doctor'}}">
+  <view class="invite-icon-wrap">
+    <text class="invite-icon">🩺</text>
+  </view>
+  <text class="invite-title">邀请医生关注我的健康</text>
+  <text class="invite-desc">
+    转发给医生微信，对方点开卡片并确认绑定后，
+    即可长期查看您的心血管数据
+  </text>
+
+  <view class="steps-box">
+    <view class="step-row">
+      <view class="step-num">1</view>
+      <text class="step-text">点击下方「发送给微信中的医生」</text>
+    </view>
+    <view class="step-line"></view>
+    <view class="step-row">
+      <view class="step-num">2</view>
+      <text class="step-text">在微信通讯录中选择您的医生</text>
+    </view>
+    <view class="step-line"></view>
+    <view class="step-row">
+      <view class="step-num">3</view>
+      <text class="step-text">医生点开卡片并确认绑定，即可长期查看数据</text>
+    </view>
+  </view>
+
+  <!-- ★ 真正的分享按钮：点击后弹出微信联系人选择面板 -->
+  <button class="share-btn doctor-btn" open-type="share">💙 发送给微信中的医生</button>
+
+  <view class="invite-footer">
+    <text class="invite-tip-icon">💡</text>
+    <text class="invite-tip">可绑定多位医生，数据仅在您授权的医生间共享</text>
+  </view>
+
+  <!-- ★ 新增：已绑定医生列表 + 解绑(原独立"绑定管理"页面功能合并至此)，
+       每条附带科室/医院——这两项是患者绑定医生时手动填写的 -->
+  <view class="bindings-section">
+    <view class="bindings-title">🩺 已绑定医生</view>
+    <view class="bindings-loading" wx:if="{{bindingsLoading}}">加载中...</view>
+    <block wx:else>
+      <view class="empty-tip" wx:if="{{doctorList.length === 0}}">还没有绑定任何医生</view>
+      <view class="binding-card" wx:for="{{doctorList}}" wx:key="viewerId">
+        <view class="binding-info">
+          <text class="binding-name">{{item.name}}</text>
+          <text class="binding-sub" wx:if="{{item.hospital || item.department}}">{{item.hospital}}{{item.hospital && item.department ? ' · ' : ''}}{{item.department}}</text>
+        </view>
+        <view
+          class="unbind-btn"
+          catchtap="unbindDoctor"
+          data-viewer-id="{{item.viewerId}}"
+          data-name="{{item.name}}"
+        >解绑</view>
+      </view>
+    </block>
+  </view>
+</view>
+
+<!-- 底部品牌提示 -->
+<view class="brand-footer">
+  <text class="brand-text">心血管健康监测 · 关爱每一刻</text>
+</view>
+
+</view>

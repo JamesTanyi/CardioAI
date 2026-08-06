@@ -1,0 +1,188 @@
+/* pages/measure/result/result.wxss */
+
+page {
+  background: #F6F7F9;
+  font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, sans-serif;
+}
+
+.container {
+  padding: 24rpx 24rpx 80rpx;
+}
+
+/* ── 风险卡片 ── */
+.risk-card {
+  border-radius: 24rpx;
+  padding: 40rpx 30rpx;
+  text-align: center;
+  margin-bottom: 24rpx;
+  background: #E8F7F0;
+}
+.risk-card.low      { background: #E8F7F0; }
+.risk-card.moderate { background: #fffbe6; }
+.risk-card.high     { background: #fff1f0; }
+.risk-card.critical { background: #fff1f0; }
+
+.risk-label {
+  display: block;
+  font-size: 48rpx;
+  font-weight: 900;
+  color: #222;
+  margin-bottom: 10rpx;
+}
+
+.risk-sub {
+  font-size: 24rpx;
+  color: #888;
+}
+
+/* ── 统计摘要 / 趋势图 / 记录列表（新增） ── */
+.section-card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.05);
+}
+
+.section-title {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20rpx;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.stat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.stat-val {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 6rpx;
+}
+.stat-val.warn { color: #d9534f; }
+
+.stat-label {
+  font-size: 22rpx;
+  color: #999;
+}
+
+.chart-wrapper { height: 320rpx; }
+.chart-canvas { width: 100%; }
+.chart-legend { display: flex; justify-content: center; gap: 30rpx; margin-top: 10rpx; }
+.legend-item { font-size: 24rpx; color: #666; display: flex; align-items: center; }
+.dot { width: 12rpx; height: 12rpx; border-radius: 50%; margin-right: 8rpx; }
+.dot.red { background: #FF6B6B; }
+.dot.blue { background: #4A90E2; }
+
+.record-list { display: flex; flex-direction: column; }
+.record-row {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+.record-row:last-child { border-bottom: none; }
+
+.record-time {
+  width: 200rpx;
+  font-size: 24rpx;
+  color: #888;
+}
+
+.record-values {
+  flex: 1;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6rpx;
+}
+.v-sbp { font-size: 30rpx; font-weight: bold; color: #FF6B6B; }
+.v-sep { font-size: 26rpx; color: #ccc; }
+.v-dbp { font-size: 30rpx; font-weight: bold; color: #4A90E2; }
+.v-pp { font-size: 22rpx; color: #999; margin-left: 12rpx; }
+
+.record-badge {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  white-space: nowrap;
+}
+.record-badge.normal { background: #E8F7F0; color: #27ae60; }
+.record-badge.abnormal { background: #fff1f0; color: #d9534f; }
+
+.record-empty {
+  text-align: center;
+  font-size: 24rpx;
+  color: #aaa;
+  padding: 40rpx 0;
+}
+
+/* ── 报告卡片 ── */
+.report-card {
+  background: #fff;
+  border-radius: 24rpx;
+  padding: 32rpx 28rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.05);
+  min-height: 200rpx;
+}
+
+/* 报告文字 */
+.report-text {
+  display: block;
+}
+
+/* ★ 改：原来是单个 <text> 整段纯文本(white-space:pre-wrap)，
+   现在按行拆开渲染，方便给部分片段单独上色（强调标记）；
+   每行给一个最小高度，保持原来空行的段落间距观感 */
+.report-line-wrap {
+  font-size: 28rpx;
+  color: #333;
+  line-height: 1.9;
+  min-height: 1.9em;
+}
+
+.report-line-wrap .emphasis {
+  color: #d9534f;
+  font-weight: 600;
+}
+
+/* ── 底部按钮 ── */
+.footer-btns {
+  display: flex;
+  gap: 20rpx;
+  margin-top: 10rpx;
+}
+
+.btn-primary {
+  flex: 1;
+  height: 96rpx;
+  line-height: 96rpx;
+  background: linear-gradient(135deg, #07C160, #05A050);
+  color: #fff;
+  border-radius: 48rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  border: none;
+}
+
+.btn-secondary {
+  flex: 1;
+  height: 96rpx;
+  line-height: 96rpx;
+  background: #fff;
+  color: #333;
+  border-radius: 48rpx;
+  font-size: 32rpx;
+  border: 2rpx solid #ddd;
+}

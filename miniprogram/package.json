@@ -1,0 +1,7 @@
+{
+  "name": "miniprogram",
+  "version": "1.0.0",
+  "dependencies": {
+    "weapp-qrcode-canvas-2d": "^1.0.0"
+  }
+}

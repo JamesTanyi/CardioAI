@@ -1,0 +1,191 @@
+<view class="report-container">
+  <!-- 患者选择栏 -->
+  <view class="patient-select-bar">
+    <view class="ps-label">当前查看：</view>
+    <view class="ps-dropdown" bindtap="togglePatientPicker">
+      <!-- ★ 改：优先显示 selectedPatientName（姓名+出生日期），查不到才退回原始ID -->
+      <text class="ps-value">{{isViewingPatient ? (selectedPatientName || selectedPatientId || '未知患者') : '我的数据'}}</text>
+      <text class="ps-arrow">{{showPatientPicker ? '▲' : '▼'}}</text>
+    </view>
+    <!-- ★ 新增：留言反馈入口——只在查看具体患者时显示，跳转时带上患者上下文，
+         对应三方共享留言板功能（feedback/feedback 页面） -->
+    <view class="ps-feedback-btn" wx:if="{{isViewingPatient && selectedPatientId}}" bindtap="goToFeedback">
+      💬 留言
+    </view>
+  </view>
+
+  <!-- 风险汇总栏 -->
+  <view class="risk-summary" wx:if="{{highRiskCount > 0 || moderateRiskCount > 0}}">
+    <view class="risk-summary-item high" wx:if="{{highRiskCount > 0}}">
+      <view class="rs-dot high"></view>
+      <text>{{highRiskCount}}人高危</text>
+    </view>
+    <view class="risk-summary-item moderate" wx:if="{{moderateRiskCount > 0}}">
+      <view class="rs-dot moderate"></view>
+      <text>{{moderateRiskCount}}人需关注</text>
+    </view>
+  </view>
+
+  <!-- 患者下拉菜单（支持搜索+分页） -->
+  <view class="ps-menu" wx:if="{{showPatientPicker}}">
+    <!-- 搜索栏 -->
+    <view class="ps-search-bar">
+      <view class="ps-search-icon">🔍</view>
+      <input class="ps-search-input" placeholder="搜索患者ID..." value="{{searchKeyword}}" bindinput="onSearchInput" confirm-type="search" />
+      <view class="ps-search-clear" wx:if="{{searchKeyword}}" bindtap="clearSearch">✕</view>
+    </view>
+
+    <!-- 患者计数 -->
+    <view class="ps-count" wx:if="{{patientTotal > 0}}">
+      共 {{patientTotal}} 名患者
+      <text wx:if="{{highRiskCount > 0 || moderateRiskCount > 0}}" class="ps-count-warn">
+        ，其中 {{highRiskCount + moderateRiskCount}} 人有异常
+      </text>
+    </view>
+
+    <!-- 患者列表（可滚动） -->
+    <scroll-view scroll-y class="ps-scroll-list" enable-back-to-top bindscrolltolower="onReachBottom" lower-threshold="80">
+      <view class="ps-menu-item self-item" bindtap="viewOwnData">
+        <text class="ps-menu-text">📋 查看我的数据</text>
+        <text class="ps-check" wx:if="{{!isViewingPatient}}">✓</text>
+      </view>
+      <block wx:for="{{patients}}" wx:key="patient_id">
+        <!-- ★ 改：data-patient-name 和展示文本都用 item.displayName（姓名+出生日期），不再是原始ID -->
+        <view class="ps-menu-item" bindtap="selectPatient" data-patient-id="{{item.patient_id}}" data-patient-name="{{item.displayName}}">
+          <view class="ps-risk-dot {{patientRiskMap[item.patient_id].risk || 'none'}}"></view>
+          <view class="ps-menu-info">
+            <text class="ps-menu-name">{{item.displayName}}</text>
+            <text class="ps-menu-detail" wx:if="{{item.doctor_name}}">{{item.doctor_name}}</text>
+          </view>
+          <view class="ps-menu-right">
+            <text class="ps-risk-label {{patientRiskMap[item.patient_id].risk || 'none'}}" wx:if="{{patientRiskMap[item.patient_id]}}">
+              {{patientRiskMap[item.patient_id].risk === 'high' ? '高危' : patientRiskMap[item.patient_id].risk === 'moderate' ? '偏高' : patientRiskMap[item.patient_id].risk === 'none' ? '未测' : '正常'}}
+            </text>
+            <text class="ps-check" wx:if="{{selectedPatientId === item.patient_id}}">✓</text>
+          </view>
+        </view>
+      </block>
+
+      <!-- 加载更多指示 -->
+      <view class="ps-load-more" wx:if="{{patients.length > 0}}">
+        <block wx:if="{{patientLoading}}">
+          <view class="ps-spinner"></view>
+          <text>加载中...</text>
+        </block>
+        <block wx:elif="{{patientHasMore}}">
+          <text class="ps-load-tip">上拉加载更多</text>
+        </block>
+        <block wx:else>
+          <text class="ps-load-tip">— 已加载全部 {{patients.length}} 名患者 —</text>
+        </block>
+      </view>
+
+      <!-- 无搜索结果 -->
+      <view class="ps-menu-empty" wx:if="{{patients.length === 0 && !patientLoading}}">
+        <text wx:if="{{searchKeyword}}">未找到匹配的患者</text>
+        <text wx:else>暂无绑定患者，请让患者通过「绑定医生」分享邀请</text>
+      </view>
+    </scroll-view>
+  </view>
+
+  <!-- 报告头部 -->
+  <view class="report-header">
+    <view class="header-title">血压监测临床报告</view>
+    <view class="patient-info">
+      <text class="info-item">日期: {{reportDate}}</text>
+    </view>
+  </view>
+
+  <!-- 血压分布与摘要 -->
+  <view class="section-card">
+    <view class="section-title">📊 血压分布与摘要</view>
+    <view class="dist-layout">
+      <!-- 散点图 -->
+      <view class="chart-box">
+        <canvas type="2d" id="distChart" class="dist-canvas"></canvas>
+      </view>
+      <view class="dist-legend">
+        <view class="legend-item"><view class="dot dist-blue"></view>正常</view>
+        <view class="legend-item"><view class="dot dist-red"></view>异常(收缩压≥140或舒张压≥90)</view>
+      </view>
+
+      <!-- 摘要数据列表 -->
+      <view class="summary-list">
+        <view class="summary-row">
+          <text class="s-label">收缩压范围:</text> <text class="s-val">{{statistics.sbpRange}}</text> <text class="s-unit">mmHg</text>
+        </view>
+        <view class="summary-row">
+          <text class="s-label">舒张压范围:</text> <text class="s-val">{{statistics.dbpRange}}</text> <text class="s-unit">mmHg</text>
+        </view>
+        <view class="summary-row">
+          <text class="s-label">脉压差范围:</text> <text class="s-val">{{statistics.ppRange}}</text> <text class="s-unit">mmHg</text>
+        </view>
+        <view class="summary-row">
+          <text class="s-label">心率范围:</text> <text class="s-val">{{statistics.hrRange}}</text> <text class="s-unit">bpm</text>
+        </view>
+        <view class="summary-row warn-row">
+          <text class="s-label">异常率:</text> <text class="s-val warn">{{statistics.abnormalRate}}%</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 趋势图表 -->
+  <view class="section-card">
+    <view class="section-title">📈 血压趋势（近2周）</view>
+    <view class="chart-wrapper">
+      <scroll-view scroll-x class="chart-scroll" scroll-left="{{trendScrollLeft}}">
+        <canvas type="2d" id="doctorChart" class="chart-canvas" style="width: {{trendCanvasWidth}}px; height: 300rpx;"></canvas>
+      </scroll-view>
+    </view>
+    <view class="chart-legend">
+      <view class="legend-item"><view class="dot red"></view>收缩压</view>
+      <view class="legend-item"><view class="dot blue"></view>舒张压</view>
+    </view>
+  </view>
+
+  <!-- ★ 新增：从临床报告里提取出来的图表，紧跟趋势图展示——
+       之前这两张图深埋在"临床评估与建议"那一大段文字报告最底部，要滚很久才能看到 -->
+  <view class="section-card" wx:if="{{reportCharts.length > 0}}">
+    <view class="section-title">🖼️ 分析图表</view>
+    <block wx:for="{{reportCharts}}" wx:for-item="chart" wx:key="index">
+      <image
+        class="report-img"
+        src="{{chart.src}}"
+        mode="widthFix"
+        show-menu-by-longpress="{{true}}"
+      />
+    </block>
+  </view>
+
+  <!-- 临床分析 (后端医生角色输出) -->
+  <view class="section-card analysis-card" wx:if="{{doctorReport.length > 0}}">
+    <view class="section-title">🩺 临床评估与建议</view>
+    <view class="doctor-text">
+      <block wx:for="{{doctorReport}}" wx:for-item="section" wx:key="index">
+        <view class="report-section">
+          <view class="report-section-title" wx:if="{{section.title}}">{{section.title}}</view>
+          <block wx:for="{{section.items}}" wx:for-item="item" wx:key="index">
+            <view class="report-h3" wx:if="{{item.type === 'h3'}}">{{item.content}}</view>
+            <view class="report-li-block" wx:elif="{{item.type === 'li'}}">
+              <view class="report-li-label">{{item.content}}</view>
+              <view class="report-li-details" wx:if="{{item.detailsText}}">{{item.detailsText}}</view>
+            </view>
+            <image
+              class="report-img"
+              wx:elif="{{item.type === 'img'}}"
+              src="{{item.src}}"
+              mode="widthFix"
+              show-menu-by-longpress="{{true}}"
+            />
+            <view class="report-hr" wx:elif="{{item.type === 'hr'}}"></view>
+            <view class="report-line" wx:else>{{item.content}}</view>
+          </block>
+        </view>
+      </block>
+    </view>
+    <view class="disclaimer">
+      * 本报告由 CardioAI 智能分析生成，仅供临床参考
+    </view>
+  </view>
+</view>

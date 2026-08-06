@@ -1,0 +1,80 @@
+<view class="bc-container">
+
+  <!-- 加载中：正在校验邀请链接 -->
+  <view class="bc-loading" wx:if="{{confirmLoading}}">
+    <text class="bc-loading-text">正在验证邀请信息...</text>
+  </view>
+
+  <!-- 验证失败：链接无效/过期/网络异常 -->
+  <view class="bc-error" wx:elif="{{tokenError}}">
+    <text class="bc-error-icon">⚠️</text>
+    <text class="bc-error-text">{{tokenError}}</text>
+    <button class="bc-btn-skip" bindtap="onSkipToRegister">跳过，直接注册</button>
+  </view>
+
+  <!-- 验证成功：展示患者信息，等待用户确认 -->
+  <view class="bc-body" wx:else>
+    <text class="bc-title">{{confirmRole === 'doctor' ? '确认绑定该患者' : '确认关注该家人'}}</text>
+
+    <view class="bc-patient-card">
+      <view class="bc-patient-avatar">👤</view>
+      <text class="bc-patient-name">{{confirmFromUserName}}</text>
+      <view class="bc-patient-summary">
+        <text wx:if="{{confirmPatientInfo.latestSbp}}">
+          最近血压：{{confirmPatientInfo.latestSbp}}/{{confirmPatientInfo.latestDbp}} mmHg
+        </text>
+        <text wx:else>暂无测量记录</text>
+      </view>
+    </view>
+
+    <text class="bc-tip">
+      {{confirmRole === 'doctor' ? '绑定后您将可以长期查看该患者的健康数据，并在患者出现异常时收到提醒' : '绑定后您将可以长期关注该家人的健康状况，并在异常时收到提醒'}}
+    </text>
+
+    <!-- ★ 新增：本人姓名由自己手动填写，不再从微信账号信息或自动生成的
+         描述文字里取——这是"绑定管理页面显示成患者自己名字"这个问题的修复 -->
+    <view class="bc-form">
+      <view class="bc-form-item">
+        <text class="bc-form-label">您的姓名</text>
+        <input
+          class="bc-form-input"
+          placeholder="请输入您的真实姓名"
+          value="{{inputName}}"
+          bindinput="onInputName"
+          maxlength="20"
+        />
+      </view>
+
+      <!-- ★ 新增：医生角色额外填写专业(科室)和医院，绑定这一步之前完全不收集，
+           导致绑定管理页面里医生条目的科室/医院一直是空的 -->
+      <block wx:if="{{confirmRole === 'doctor'}}">
+        <view class="bc-form-item">
+          <text class="bc-form-label">您的专业/科室</text>
+          <input
+            class="bc-form-input"
+            placeholder="例如：心血管内科"
+            value="{{inputDepartment}}"
+            bindinput="onInputDepartment"
+            maxlength="30"
+          />
+        </view>
+        <view class="bc-form-item">
+          <text class="bc-form-label">您所在的医院</text>
+          <input
+            class="bc-form-input"
+            placeholder="例如：XX市第一人民医院"
+            value="{{inputHospital}}"
+            bindinput="onInputHospital"
+            maxlength="40"
+          />
+        </view>
+      </block>
+    </view>
+
+    <view class="bc-actions">
+      <button class="bc-btn-reject" bindtap="onRejectBind" disabled="{{confirmSubmitting}}">取消</button>
+      <button class="bc-btn-confirm" bindtap="onConfirmBind" loading="{{confirmSubmitting}}" disabled="{{confirmSubmitting || !canConfirm}}">确认绑定</button>
+    </view>
+  </view>
+
+</view>

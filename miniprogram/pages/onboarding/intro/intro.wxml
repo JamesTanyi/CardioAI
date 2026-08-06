@@ -1,0 +1,25 @@
+<view class="container">
+  <view class="content">
+    <view class="logo-area">
+      <text class="logo-icon">❤️</text>
+      <text class="app-name">CardioAI</text>
+    </view>
+    <text class="slogan">您的智能心血管健康助手</text>
+    
+    <view class="core-value">
+      <text class="core-value-icon">🎯</text>
+      <text class="core-value-line">不是诊断疾病</text>
+      <text class="core-value-line highlight">而是确保你在该看医生的时候</text>
+      <text class="core-value-line highlight">不被耽误</text>
+    </view>
+
+    <view class="feature-list">
+      <view class="feature-item">📊 心脑血管变化趋势分析</view>
+      <view class="feature-item">⚠️ 心脑血管疾病早期预警</view>
+      <view class="feature-item">👨‍👩‍👧‍👦 家属远程关怀</view>
+      <view class="feature-item">🩺 医生诊疗辅助</view>
+    </view>
+  </view>
+
+  <button class="btn-start" bindtap="onStart">开启健康之旅</button>
+</view>
