@@ -5,6 +5,50 @@
 //   分享链接现在直接指向 bind-confirm 页面，不再经过这里。
 
 Page({
+  // ★ 新增：页面一加载就自动检查——之前角色跳转逻辑只写在 onStart() 里，
+  //   而 onStart 只有用户点了"开始"按钮才会触发。如果家属/医生账号因为
+  //   别的原因(比如冷启动默认落到这个页面)被带到这里，只要不点按钮，
+  //   就会一直卡在欢迎页出不去。现在页面一打开就自动检查一次：
+  //   如果已经是绑定过的家属/医生，立刻转走，不用等用户操作；
+  //   真正的全新用户(还没有 userProfile)不受影响，仍然停留在欢迎页，
+  //   走原来"点开始按钮→注册"这条路。
+  onLoad() {
+    this._guardAlreadyBoundRoles();
+  },
+
+  _guardAlreadyBoundRoles() {
+    let userProfile = wx.getStorageSync('userProfile');
+    if (!userProfile) {
+      const recovered = this._recoverRoleFromStorage();
+      if (recovered) {
+        userProfile = wx.getStorageSync('userProfile');
+      }
+    }
+    if (!userProfile) return; // 真正的新用户，留在欢迎页，等待点击"开始"
+
+    const role = userProfile.role || 'user';
+    if (role === 'family') {
+      const pid = wx.getStorageSync('family_patient_id') || '';
+      const pname = wx.getStorageSync('family_patient_name') || pid;
+      if (pid) {
+        wx.reLaunch({ url: `/pages/family/dashboard/dashboard?patientId=${pid}&patientName=${encodeURIComponent(pname)}` });
+      } else {
+        wx.reLaunch({ url: '/pages/family/family/family' });
+      }
+      return;
+    }
+    if (role === 'doctor') {
+      const hasDoctor = wx.getStorageSync('has_doctor_binding');
+      if (hasDoctor) {
+        wx.reLaunch({ url: '/pages/doctor/patient-list/patient-list' });
+      } else {
+        wx.reLaunch({ url: '/pages/family/family/family' });
+      }
+      return;
+    }
+    // role 是 'user'(患者)：留在欢迎页，走原来点击"开始"按钮的流程
+  },
+
   onStart() {
     let userProfile = wx.getStorageSync('userProfile');
     if (!userProfile) {

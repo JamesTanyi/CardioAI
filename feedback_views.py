@@ -92,28 +92,44 @@ def get_relation_role():
 @require_binding_permission
 def get_feedback():
     """
-    获取"某个患者 + 某个医生"这一条独立留言线（按最新时间排在最前面）。
+    获取"某个患者 + 某条线"的留言（按最新时间排在最前面）。
+
+    ★ 改：doctorId 不再是必填参数——不传/传空字符串，代表"基础线"
+    （患者+家属专属，永远存在，不挂任何医生，医生完全无法访问）；
+    传具体的医生 id，代表"诊疗线"（患者+家属+这位医生三方共享，
+    医生之间互相隔离，跟之前设计一致）。
+    doctor_id 在数据库里统一用空字符串 '' 表示基础线，不用 NULL——
+    NULL 参与 feedback_read_progress 表的唯一性判断时，大多数数据库
+    会把它当成"永远不算重复"，导致已读记录机制失效，用 '' 完全没有这个问题。
+
     require_binding_permission 装饰器已经验证过 viewerId 对 userId(=patientId) 有权限
     （这一步只确认"viewer 跟这个患者有关系"，还不够——医生还要额外确认
-    只能看自己那条线，见下面的补充校验）。
+    只能看自己那条线，基础线还要额外确认医生完全不能进，见下面的补充校验）。
     """
     patient_id = request.args.get("userId") or request.args.get("user_id")
     viewer_id = request.args.get("viewerId")
-    doctor_id = request.args.get("doctorId")
-
-    if not doctor_id:
-        return jsonify({"code": 1, "error": "缺少 doctorId 参数"}), 400
+    doctor_id = request.args.get("doctorId") or ""
 
     conn = database.get_db()
     cursor = conn.cursor()
     ph = database.get_placeholder()
 
     try:
-        # ★ 关键校验：如果查看者本人就是这个患者的一个绑定医生，
-        #   那他只能看自己这条线，不能靠"对这个患者本身有权限"就看别的医生的线
-        if viewer_id and viewer_id != patient_id:
-            if _is_active_doctor_of(cursor, ph, viewer_id, patient_id) and viewer_id != doctor_id:
-                return jsonify({"code": 1, "error": "无权限查看其他医生的留言线"}), 403
+        if doctor_id == "":
+            # ★ 基础线：只有患者本人和绑定家属能访问，医生完全无权限——
+            #   哪怕这个人同时也是该患者的绑定医生，也不能靠这层关系看到
+            #   患者和家属之间的私下交流，这是这次架构调整的核心诉求
+            if viewer_id and viewer_id != patient_id:
+                if _is_active_doctor_of(cursor, ph, viewer_id, patient_id):
+                    return jsonify({"code": 1, "error": "医生无权限查看基础对话线"}), 403
+                if not _is_active_family_of(cursor, ph, viewer_id, patient_id):
+                    return jsonify({"code": 1, "error": "无权限查看该基础对话线"}), 403
+        else:
+            # ★ 诊疗线：关键校验——如果查看者本人就是这个患者的一个绑定医生，
+            #   那他只能看自己这条线，不能靠"对这个患者本身有权限"就看别的医生的线
+            if viewer_id and viewer_id != patient_id:
+                if _is_active_doctor_of(cursor, ph, viewer_id, patient_id) and viewer_id != doctor_id:
+                    return jsonify({"code": 1, "error": "无权限查看其他医生的留言线"}), 403
 
         # ★ 改：加 JOIN users 表把发言人的真实姓名一起查出来——之前只返回
         #   from_role(patient/family/doctor)，前端只能显示笼统的角色标签，
@@ -136,7 +152,12 @@ def get_feedback():
 @feedback_bp.route("/send_feedback", methods=["POST"])
 def send_feedback():
     """
-    发一条留言到"某个患者 + 某个医生"这条独立线。
+    发一条留言到"某个患者 + 某条线"。
+
+    ★ 改：doctorId 不再必填——不传/传空字符串代表发到基础线（患者+家属专属）；
+    传具体医生 id 代表发到那位医生的诊疗线。基础线场景下医生天然发不进来：
+    医生账号既不等于 patient_id，通常也不是这个患者的绑定家属，会自然落到
+    下面 else 分支被拒绝，不需要为"禁止医生发基础线"单独加一条校验。
 
     ★ 说明：这里没有用 require_binding_permission 装饰器——它是按 GET 参数
     (userId/viewerId) 校验的，而这里是 POST body，权限校验逻辑手动内联一份，
@@ -146,11 +167,11 @@ def send_feedback():
     from_id = data.get("fromId")
     from_role = data.get("fromRole")
     patient_id = data.get("patientId") or data.get("toId")
-    doctor_id = data.get("doctorId")
+    doctor_id = data.get("doctorId") or ""
     content = (data.get("content") or "").strip()
 
-    if not from_id or not patient_id or not doctor_id or not content:
-        return jsonify({"code": 1, "error": "缺少必要参数(fromId/patientId/doctorId/content)"}), 400
+    if not from_id or not patient_id or not content:
+        return jsonify({"code": 1, "error": "缺少必要参数(fromId/patientId/content)"}), 400
     if len(content) > 500:
         return jsonify({"code": 1, "error": "内容不能超过500字"}), 400
 
@@ -159,20 +180,22 @@ def send_feedback():
     ph = database.get_placeholder()
 
     try:
-        # doctor_id 本身必须是这个患者真实、当前有效的绑定医生，
-        # 不能凭空发到一个没有真实绑定关系的"线"上
-        if not _is_active_doctor_of(cursor, ph, doctor_id, patient_id):
-            return jsonify({"code": 1, "error": "该医生未绑定此患者，无法发送到这条留言线"}), 403
+        if doctor_id:
+            # 诊疗线：doctor_id 本身必须是这个患者真实、当前有效的绑定医生，
+            # 不能凭空发到一个没有真实绑定关系的"线"上
+            if not _is_active_doctor_of(cursor, ph, doctor_id, patient_id):
+                return jsonify({"code": 1, "error": "该医生未绑定此患者，无法发送到这条留言线"}), 403
 
         if from_id == patient_id:
             from_role = "patient"
-        elif from_id == doctor_id:
+        elif doctor_id and from_id == doctor_id:
             from_role = "doctor"
         elif _is_active_family_of(cursor, ph, from_id, patient_id):
             from_role = "family"
         else:
             # 剩下的情况：既不是患者本人、不是这条线对应的医生、也不是家属
-            # （比如另一个医生想发到不属于自己的线）——一律拒绝
+            # （比如另一个医生想发到不属于自己的线，或者任何人想发到基础线
+            #  但既不是患者也不是家属）——一律拒绝
             return jsonify({"code": 1, "error": "无权限给该患者留言，请先确认绑定"}), 403
     except Exception as e:
         return jsonify({"code": 1, "error": "权限校验失败", "detail": str(e)}), 500
@@ -192,16 +215,18 @@ def send_feedback():
 @feedback_bp.route("/mark_feedback_read", methods=["POST"])
 def mark_feedback_read():
     """
-    记录"这个查看者刚刚看过这个患者+这个医生的那条留言线"——
-    各端、各条线独立记录，不影响其他人/其他线的未读状态。
+    记录"这个查看者刚刚看过这个患者+这条线"——各端、各条线独立记录，
+    不影响其他人/其他线的未读状态。
+
+    ★ 改：doctorId 不再必填，不传/空字符串代表基础线的已读记录。
     """
     data = request.get_json(force=True) or {}
     viewer_id = data.get("viewerId")
     patient_id = data.get("patientId")
-    doctor_id = data.get("doctorId")
+    doctor_id = data.get("doctorId") or ""
 
-    if not viewer_id or not patient_id or not doctor_id:
-        return jsonify({"code": 1, "error": "缺少必要参数(viewerId/patientId/doctorId)"}), 400
+    if not viewer_id or not patient_id:
+        return jsonify({"code": 1, "error": "缺少必要参数(viewerId/patientId)"}), 400
 
     conn = database.get_db()
     cursor = conn.cursor()

@@ -13,6 +13,8 @@ Page({
     showAlert: false,
     alertLevel: 'normal',
     alertMsg: '',
+    // ★ 新增：未读留言数(基础线+各医生诊疗线汇总)，显示在"更多功能"入口旁边的角标
+    selfUnreadFeedbackCount: 0,
 
     symptoms: [
       { label: '头晕',         value: 'dizzy',           selected: false },
@@ -52,6 +54,23 @@ Page({
     this.setData({ currentRole: role });
     this.checkAlertStatus();
     this._autoRouteToDashboard(role);
+    this._syncUnreadFeedback();
+  },
+
+  // ★ 新增：同步"健康反馈"未读数——跟 more.js 读的是同一份数据源
+  //   (app.js 的 syncAllBindings 从 get_binding_status 同步好的
+  //   selfUnreadFeedbackCount，已经把基础线+各医生诊疗线的未读都汇总在内)，
+  //   不用自己再发一次请求
+  _syncUnreadFeedback() {
+    const readFromGlobal = () => {
+      const badge = (app.globalData && app.globalData.alertBadge) || {};
+      this.setData({ selfUnreadFeedbackCount: badge.selfUnreadFeedbackCount || 0 });
+    };
+    if (app.globalData && app.globalData.bindingsReady) {
+      readFromGlobal();
+    } else if (app && typeof app.syncAllBindings === 'function') {
+      app.syncAllBindings(() => readFromGlobal());
+    }
   },
 
   /**
@@ -73,23 +92,29 @@ Page({
       const currentPagePath = pages[pages.length - 1].route;
       if (currentPagePath.indexOf('dashboard') !== -1) return;
     }
+    // ★ 修复：原来这里要求 role 对上"且" has_family_binding/family_patient_id
+    //   这类本地缓存标记也同时齐全，才会真正跳转——多一层条件就多一个
+    //   静默失败的机会，家属/医生账号只要缺了某个缓存标记，就会卡在这个
+    //   录入血压页面出不去(这正是这次排查到的实际bug现象)。现在只要角色
+    //   本身是family/doctor就立刻转走，patientId缺失时退回各自的兜底页面，
+    //   不再要求额外标记齐全才生效。
     if (role === 'family') {
-      const localFamily = wx.getStorageSync('has_family_binding');
       const localPid = wx.getStorageSync('family_patient_id') || '';
-      if (localFamily && localPid) {
+      if (localPid) {
         const localPname = wx.getStorageSync('family_patient_name') || localPid;
         wx.reLaunch({ url: `/pages/family/dashboard/dashboard?patientId=${localPid}&patientName=${encodeURIComponent(localPname)}` });
-        return;
+      } else {
+        wx.reLaunch({ url: '/pages/family/family/family' });
       }
+      return;
     }
     if (role === 'doctor') {
-      const localDoctor = wx.getStorageSync('has_doctor_binding');
-      const localPid = wx.getStorageSync('last_viewed_patient') || '';
-      if (localDoctor && localPid) {
-        const localPname = wx.getStorageSync('last_viewed_patient_name') || localPid;
-        wx.reLaunch({ url: `/pages/doctor/dashboard/dashboard?patientId=${localPid}&patientName=${encodeURIComponent(localPname)}` });
-        return;
-      }
+      // ★ 改：医生的默认落地页统一为患者列表工作台，不是某个具体患者的详情——
+      //   跟项目里其他地方(app.js/bind-confirm.js)已经确立的设计保持一致，
+      //   这里原来是跳去某个"上次看的患者"详情页，不统一，也容易在没有
+      //   "上次看的患者"记录时又静默失败
+      wx.reLaunch({ url: '/pages/doctor/patient-list/patient-list' });
+      return;
     }
   },
 

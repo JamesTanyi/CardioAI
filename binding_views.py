@@ -206,16 +206,20 @@ def get_binding_status():
 def _count_unread_feedback(cursor, ph, viewer_id, patient_id, doctor_id=None):
     """
     统计某个查看者(viewer_id)对某个患者(patient_id)有几条未读留言。
-    ★ 改：留言线现在按"患者+医生"拆分了，未读计数也要按线区分：
-    - 传 doctor_id：只统计这一条线(医生自己看自己的线时用这个)
-    - 不传 doctor_id：统计这个患者名下所有医生线的未读总和(家属/患者看汇总角标时用这个，
-      因为他们能看所有医生的线，需要一个加总的数字)
+    ★ 改：留言线现在按"基础线(患者+家属专属)+每个医生一条诊疗线"拆分，
+    未读计数也要按线区分：
+    - 传 doctor_id(可以是空字符串''，代表基础线；或者具体医生 id，代表诊疗线)：
+      只统计这一条线
+    - 不传 doctor_id(None)：统计"基础线"+这个患者名下所有 active 医生诊疗线
+      的未读总和(家属/患者看汇总角标时用这个，因为他们能看所有线，需要一个
+      加总的数字；医生只能看自己那条诊疗线，永远传具体 doctor_id，不会走进
+      这个汇总分支，所以汇总里包含基础线不会影响医生视角)
     "未读"指：不是自己发的、且发送时间晚于自己上次查看这条线的记录
     （或者从没查看过、但确实有别人发过的留言，这时全部算未读）。
     各端(患者/家属/医生)、各条线的已读进度分别记在 feedback_read_progress 表里，互不影响。
     """
     try:
-        if doctor_id:
+        if doctor_id is not None:
             cursor.execute(
                 f"SELECT last_read_at FROM feedback_read_progress "
                 f"WHERE viewer_id={ph} AND patient_id={ph} AND doctor_id={ph}",
@@ -238,13 +242,13 @@ def _count_unread_feedback(cursor, ph, viewer_id, patient_id, doctor_id=None):
             row = cursor.fetchone()
             return dict(row)['cnt'] if row else 0
 
-        # 不传 doctor_id：汇总这个患者名下所有active医生线的未读总和
+        # 不传 doctor_id：汇总"基础线"+这个患者名下所有active医生线的未读总和
+        total = _count_unread_feedback(cursor, ph, viewer_id, patient_id, doctor_id='')  # 基础线
         cursor.execute(
             f"SELECT doctor_id FROM doctor_bindings WHERE patient_id={ph} AND status='active'",
             (patient_id,)
         )
         doctor_ids = [dict(r)['doctor_id'] for r in cursor.fetchall()]
-        total = 0
         for did in doctor_ids:
             total += _count_unread_feedback(cursor, ph, viewer_id, patient_id, doctor_id=did)
         return total
@@ -442,15 +446,34 @@ def bind_by_invite():
 
     try:
         # 再次确认患者存在（防止确认页打开后患者数据被删除的边界情况）
-        cursor.execute(f"SELECT name FROM users WHERE user_id = {ph}", (patient_id,))
+        # ★ 改：同时查出患者自己的 openid，用来在下面提前判断"是不是自己绑自己"，
+        #   必须在调用 _resolve_viewer_user_id 之前就查出来并比对完——那个函数
+        #   一旦被调用，只要 openid 命中已存在账号，就会顺手更新 users.name，
+        #   如果等它跑完之后才发现是自己绑自己，姓名覆盖这个副作用已经发生了，
+        #   校验就晚了，等于白拦
+        cursor.execute(f"SELECT name, openid FROM users WHERE user_id = {ph}", (patient_id,))
         patient = cursor.fetchone()
         if not patient:
             return jsonify({"code": -1, "msg": "患者不存在，绑定失败"}), 404
         patient = dict(patient)
         patient_name = patient.get('name') or ''
 
+        # ★ 新增：禁止绑定自己——在真正解析/写入 viewer 身份之前就先比对 openid
+        #   拦下来。这不是理论上的边界情况：反复出现过的"姓名显示错乱/角色判断
+        #   混乱"，根源都是同一个真实账号用来"自己绑自己"做测试，导致 users 表
+        #   里同一行记录被家属/医生/患者三种身份的姓名反复互相覆盖——一个人
+        #   不可能同时是自己的家属或医生，数据结构上就不成立，必须在这里堵死。
+        if viewer_openid and viewer_openid == patient.get('openid'):
+            return jsonify({"code": -1, "msg": "不能绑定自己，请使用其他微信账号确认绑定"}), 400
+
         # ★ 改：用 openid 找/建家属或医生本人的真正 user_id
         viewer_id = _resolve_viewer_user_id(cursor, ph, viewer_openid, viewer_name, role)
+
+        # ★ 双保险：万一上面 openid 比对因为边界情况漏判(比如患者账号
+        #   openid 字段本身是空的)，这里再用解析出来的 viewer_id 比对一次，
+        #   避免真的写出一条自己绑自己的关系记录
+        if viewer_id == patient_id:
+            return jsonify({"code": -1, "msg": "不能绑定自己，请使用其他微信账号确认绑定"}), 400
 
         if role == 'family':
             cursor.execute(

@@ -27,7 +27,16 @@ Page({
     console.log('[UserProfile] onLoad — userProfile from storage:', JSON.stringify(profile));
     
     if (profile && profile.name) {
-      // 老用户：回显时自动将标准日期拆散，并去掉前导0恢复单位数显示（如 "08" 变 "8"）
+      // ★ 新增：家属/医生不该停在这个页面——这里原来的逻辑是"锁定字段、
+      //   原地显示已注册资料"，是给患者角色"查看自己资料"用的；家属/医生
+      //   如果因为某种原因被带到这里，不该看到这个锁定态资料页，应该
+      //   直接转去他们自己的看板，不给任何机会停留在这个页面
+      if (profile.role === 'family' || profile.role === 'doctor') {
+        this._routeAwayFromHere(profile.role);
+        return;
+      }
+
+      // 老用户(患者)：回显时自动将标准日期拆散，并去掉前导0恢复单位数显示（如 "08" 变 "8"）
       let y = '', m = '', d = '';
       if (profile.birthDate && profile.birthDate.includes('-')) {
         const parts = profile.birthDate.split('-');
@@ -46,6 +55,28 @@ Page({
     } else {
       console.log('[UserProfile] 未注册状态 (isLocked=false)');
       wx.removeStorageSync('userProfile');
+    }
+  },
+
+  // ★ 新增：家属/医生误入这个页面时转去他们自己该去的地方
+  _routeAwayFromHere(role) {
+    if (role === 'family') {
+      const pid = wx.getStorageSync('family_patient_id') || '';
+      const pname = wx.getStorageSync('family_patient_name') || pid;
+      if (pid) {
+        wx.reLaunch({ url: `/pages/family/dashboard/dashboard?patientId=${pid}&patientName=${encodeURIComponent(pname)}` });
+      } else {
+        wx.reLaunch({ url: '/pages/family/family/family' });
+      }
+      return;
+    }
+    if (role === 'doctor') {
+      const hasDoctor = wx.getStorageSync('has_doctor_binding');
+      if (hasDoctor) {
+        wx.reLaunch({ url: '/pages/doctor/patient-list/patient-list' });
+      } else {
+        wx.reLaunch({ url: '/pages/family/family/family' });
+      }
     }
   },
 

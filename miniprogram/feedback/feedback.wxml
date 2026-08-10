@@ -12,28 +12,21 @@
     </view>
   </view>
 
-  <!-- 当前医生线（患者/家属才显示；只绑一个医生时不给切换入口） -->
+  <!-- 当前留言线（患者/家属才显示；基础线是默认，绑了医生才能点切换） -->
   <view
-    wx:if="{{myRole !== 'doctor' && doctorId}}"
-    class="doctor-bar {{doctors.length > 1 ? 'switchable' : ''}}"
+    wx:if="{{myRole !== 'doctor' && lineResolved}}"
+    class="doctor-bar {{doctors.length > 0 ? 'switchable' : ''}}"
     bindtap="showDoctorPickerModal"
   >
-    <text class="doctor-bar-icon">🩺</text>
-    <text class="doctor-bar-text">当前医生：{{doctorName}}</text>
-    <text wx:if="{{doctors.length > 1}}" class="doctor-bar-arrow">▾</text>
+    <text class="doctor-bar-icon">💬</text>
+    <text class="doctor-bar-text">当前对话：{{currentLineLabel}}</text>
+    <text wx:if="{{doctors.length > 0}}" class="doctor-bar-arrow">▾</text>
   </view>
 
   <!-- 加载中 -->
   <view wx:if="{{loading || doctorsLoading}}" class="state-box">
     <text class="state-icon">⏳</text>
     <text class="state-text">加载中...</text>
-  </view>
-
-  <!-- 未绑定任何医生：留言线建不起来 -->
-  <view wx:elif="{{noDoctorBound}}" class="state-box">
-    <text class="state-icon">🩺</text>
-    <text class="state-text">尚未绑定医生</text>
-    <text class="state-sub">绑定医生后才能开始留言</text>
   </view>
 
   <!-- 空状态 -->
@@ -77,14 +70,24 @@
     </view>
   </view>
 
-  <!-- 医生选择弹窗（绑定多个医生时才会触发） -->
+  <!-- 留言线选择弹窗：第一项固定是"家庭对话"(基础线)，绑了医生才多出可选的诊疗线 -->
   <view wx:if="{{showDoctorPicker}}" class="modal-mask" bindtap="closeDoctorPicker">
     <view class="modal-content" catchtap="noop">
       <view class="modal-header">
-        <text class="modal-title">切换留言线</text>
+        <text class="modal-title">切换对话</text>
         <view class="modal-close" bindtap="closeDoctorPicker">✕</view>
       </view>
       <view class="doctor-list">
+        <view
+          class="doctor-option {{doctorId === '' ? 'selected' : ''}}"
+          bindtap="selectBaseLine"
+        >
+          <view class="doctor-option-main">
+            <text class="doctor-option-name">👨‍👩‍👧 家庭对话</text>
+            <text class="doctor-option-sub">仅患者本人和家属可见</text>
+          </view>
+          <text wx:if="{{doctorId === ''}}" class="doctor-option-check">✓</text>
+        </view>
         <view
           wx:for="{{doctors}}"
           wx:for-item="doc"

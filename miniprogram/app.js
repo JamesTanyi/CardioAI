@@ -242,8 +242,19 @@ App({
     //   注释描述的意图激进得多。改成：只有当前页面真的是空白或者首页(index)
     //   这种"确实需要引导去哪"的情况才自动跳转，用户已经在任何一个正常的
     //   业务页面里（不管是主页、留言板、历史记录……）都不打断。
-    const isIndexOrEmpty = !currentPage || currentPage === 'pages/index/index';
-    if (!isIndexOrEmpty) return;
+    // ★ 修复：app.json 的 pages 数组第一项是欢迎页(pages/onboarding/intro/intro)，
+    //   小程序冷启动/刷新天生就会先落到这个页面(平台规则，不是配置错了)。
+    //   但这里原来的判断只认"页面是空的"或者"是index"，没把欢迎页算进去——
+    //   导致已经绑定过的家属/医生账号，每次冷启动/刷新都会卡在欢迎页出不去
+    //   (这段逻辑一看"当前页面不是index"，就当成"用户已经在正常业务页面"，
+    //   直接放过不跳转)。现在把欢迎页也纳入"该触发自动跳转"的范围——
+    //   对已绑定的家属/医生，下面的角色判断会正确带去对应的看板；
+    //   对真正的全新用户(role还是默认的'user')，下面两个if分支都不会命中，
+    //   函数会自然走空、不做任何跳转，欢迎页该怎么显示还怎么显示，不受影响。
+    const shouldAutoRoute = !currentPage
+      || currentPage === 'pages/index/index'
+      || currentPage === 'pages/onboarding/intro/intro';
+    if (!shouldAutoRoute) return;
 
     const hasLocalFamily = wx.getStorageSync('has_family_binding');
     const hasLocalDoctor = wx.getStorageSync('has_doctor_binding');

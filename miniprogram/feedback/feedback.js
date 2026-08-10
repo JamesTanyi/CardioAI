@@ -11,12 +11,16 @@
 // ★ 再次重写：多医生留言隔离上线——一个患者如果同时绑定了多个医生，
 //   留言线按 (patientId, doctorId) 拆分，医生之间互相看不到对方那条线；
 //   患者/家属对该患者名下任意一条医生线都能看/发。
-//   ⚠ 后端 get_feedback/send_feedback/mark_feedback_read 的 doctorId 都是必填参数，
-//   所以患者/家属进页面时要先确定"看哪条线"：
-//   - 医生角色：固定用自己的 id 作为 doctorId，不需要选
-//   - 患者/家属角色：先查这个患者绑定了哪些医生——绑0个则留言线根本建不起来
-//     （给出明确提示，不是报错/空白）；绑1个自动选中不显示选择器；绑多个
-//     才展示"当前医生：xxx ▾"，可点击切换
+//
+// ★ 第三次重写：加入"基础线"——患者+家属专属的对话，永远存在，不挂任何医生，
+//   医生完全无法访问（不是权限受限，是压根看不见这条线存在）。之前"必须先
+//   绑医生才能开始留言"的设计已经改掉——患者/家属能不能绑到医生不受自己控制，
+//   留言不该被这件事卡住。数据库层面用空字符串 '' 作为 doctor_id 表示基础线
+//   （不用 NULL，因为已读记录表的唯一性判断在多数数据库里对 NULL 会失效）。
+//   - 医生角色：固定用自己的 id 作为 doctorId，看不到、也切不到基础线
+//   - 患者/家属角色：默认打开基础线（doctorId=''），如果绑了医生，
+//     可以点"当前对话：xxx ▾"切换到某位医生的诊疗线，基础线始终是切换列表里
+//     的第一项，不需要绑够医生才能用
 //
 //   同时新增"管理模式"（仅患者可见）：右上角🗑图标进入多选删除，
 //   底部出现"删除所选"+"清空全部"按钮。家属/医生看不到这个入口
@@ -32,12 +36,13 @@ Page({
     loading: true,
     requesting: false,
     isEmpty: false,
-    // ── 多医生留言隔离：当前查看的医生线 ──
-    doctors: [],           // 患者/家属角色下，该患者绑定的医生列表
+    // ── 留言线：基础线(doctorId='') + 各医生诊疗线 ──
+    doctors: [],           // 患者/家属角色下，该患者绑定的医生列表(可以是空数组，不再阻塞)
     doctorsLoading: false,
-    doctorId: '',          // 当前留言线对应的医生id（医生角色固定是自己）
-    doctorName: '',        // 当前留言线对应的医生名，展示用
-    noDoctorBound: false,  // 患者/家属角色下，该患者尚未绑定任何医生（留言线建不起来）
+    doctorId: '',          // 当前查看的线：''=基础线(患者+家属专属)，非空=某位医生的诊疗线
+    lineResolved: false,   // 是否已经确定好该看哪条线——doctorId==''本身是合法状态(基础线)，
+                            // 用这个字段区分"还没算出来"和"算出来就是基础线"，避免误判成未初始化
+    currentLineLabel: '👨‍👩‍👧 家庭对话', // 当前线的展示文案
     showDoctorPicker: false,
     // ── 管理模式(仅患者)：多选删除/清空 ──
     manageMode: false,
@@ -157,7 +162,7 @@ Page({
       });
   },
 
-  // 第二步：确定当前要看哪条留言线(doctorId)，确定后再去加载留言
+  // 第二步：确定当前要看哪条线(doctorId，''代表基础线)，确定后再去加载留言
   _resolveDoctorContextAndLoad() {
     const { patientId, myRole } = this.data;
     const myUserId = wx.getStorageSync('app_user_id') || '';
@@ -168,41 +173,37 @@ Page({
     }
 
     if (myRole === 'doctor') {
-      // 医生只能看/发自己那条线，doctorId 固定是自己，不需要查列表
-      this.setData({ doctorId: myUserId, doctorName: '', doctors: [], noDoctorBound: false });
+      // 医生只能看/发自己那条诊疗线，doctorId 固定是自己，看不到、也切不到基础线
+      this.setData({
+        doctorId: myUserId, currentLineLabel: '', doctors: [], lineResolved: true
+      });
       this.loadFeedbacks();
       return;
     }
 
-    // 患者/家属：先查这个患者绑定了哪些医生，才能确定看哪条线
+    // 患者/家属：查这个患者绑定了哪些医生，用来填充切换列表；
+    // 绑0个医生完全没关系，基础线始终可用，不再是"必须绑医生才能留言"
     this.setData({ doctorsLoading: true });
     cloudService.getPatientDoctors(patientId, myUserId)
       .then((res) => {
         this.setData({ doctorsLoading: false });
-        if (res.code !== 0) {
-          wx.showToast({ title: res.msg || res.error || '获取医生列表失败', icon: 'none' });
-          this.setData({ loading: false, isEmpty: true });
-          return;
+        const doctors = (res && res.code === 0) ? (res.data || []) : [];
+        if (res && res.code !== 0) {
+          // 查医生列表失败不影响基础线正常使用，只是切换列表暂时是空的，静默降级
+          console.warn('[feedback] getPatientDoctors failed:', res.msg || res.error);
         }
-        const doctors = res.data || [];
-        if (doctors.length === 0) {
-          // 还没绑定任何医生——doctorId 是必填参数，这条留言线根本建不起来
-          this.setData({
-            doctors: [], doctorId: '', doctorName: '', noDoctorBound: true,
-            loading: false, isEmpty: true, feedbacks: []
-          });
-          return;
-        }
-        // 如果当前已选的医生还在最新列表里，保留选择；否则默认选第一个
-        const stillValid = this.data.doctorId && doctors.some(d => d.doctorId === this.data.doctorId);
-        const picked = stillValid
-          ? doctors.find(d => d.doctorId === this.data.doctorId)
-          : doctors[0];
+        // 如果当前已选的线还有效(基础线永远有效；医生线要确认这位医生还在列表里)，保留选择；
+        // 否则回到基础线——不再有"必须默认选中某个医生"这回事
+        const currentDoctorId = this.data.lineResolved ? this.data.doctorId : '';
+        const stillValidDoctorLine = currentDoctorId && doctors.some(d => d.doctorId === currentDoctorId);
+        const nextDoctorId = stillValidDoctorLine ? currentDoctorId : '';
+        const picked = stillValidDoctorLine ? doctors.find(d => d.doctorId === nextDoctorId) : null;
+
         this.setData({
           doctors,
-          doctorId: picked.doctorId,
-          doctorName: picked.doctorName,
-          noDoctorBound: false
+          doctorId: nextDoctorId,
+          currentLineLabel: picked ? `👨‍⚕️ ${picked.doctorName}` : '👨‍👩‍👧 家庭对话',
+          lineResolved: true
         });
         this.loadFeedbacks();
       })
@@ -213,10 +214,10 @@ Page({
   },
 
   loadFeedbacks() {
-    const { patientId, doctorId } = this.data;
+    const { patientId, doctorId, lineResolved } = this.data;
     const viewerId = wx.getStorageSync('app_user_id') || '';
 
-    if (!patientId || !doctorId) {
+    if (!patientId || !lineResolved) {
       this.setData({ loading: false, isEmpty: true });
       return;
     }
@@ -287,10 +288,11 @@ Page({
     wx.navigateBack();
   },
 
-  // ========== 医生选择器(仅患者/家属，绑定多个医生时才会用到) ==========
+  // ========== 留言线选择器(患者/家属可用；基础线永远是第一项，绑了医生才多出可切换的诊疗线) ==========
 
   showDoctorPickerModal() {
-    if (this.data.doctors.length <= 1) return; // 只绑一个不需要选择器
+    if (this.data.myRole === 'doctor') return; // 医生看不到、切不到基础线/别的医生线
+    if (this.data.doctors.length === 0) return; // 只有基础线，没有别的可切
     this.setData({ showDoctorPicker: true });
   },
 
@@ -298,6 +300,23 @@ Page({
     this.setData({ showDoctorPicker: false });
   },
 
+  // 切到基础线(患者+家属专属)
+  selectBaseLine() {
+    if (this.data.doctorId === '') {
+      this.setData({ showDoctorPicker: false });
+      return;
+    }
+    this.setData({
+      doctorId: '',
+      currentLineLabel: '👨‍👩‍👧 家庭对话',
+      showDoctorPicker: false,
+      manageMode: false,
+      selectedIds: []
+    });
+    this.loadFeedbacks();
+  },
+
+  // 切到某位医生的诊疗线
   selectDoctor(e) {
     const doctorId = e.currentTarget.dataset.id;
     const doctor = this.data.doctors.find(d => d.doctorId === doctorId);
@@ -307,7 +326,7 @@ Page({
     }
     this.setData({
       doctorId: doctor.doctorId,
-      doctorName: doctor.doctorName,
+      currentLineLabel: `👨‍⚕️ ${doctor.doctorName}`,
       showDoctorPicker: false,
       manageMode: false,
       selectedIds: []
@@ -411,8 +430,8 @@ Page({
       wx.showToast({ title: '未确定患者，无法发送', icon: 'none' });
       return;
     }
-    if (!this.data.doctorId) {
-      wx.showToast({ title: this.data.noDoctorBound ? '尚未绑定医生，无法留言' : '未选择留言线，无法发送', icon: 'none' });
+    if (!this.data.lineResolved) {
+      wx.showToast({ title: '正在确定留言线，请稍候', icon: 'none' });
       return;
     }
     this.setData({
@@ -436,7 +455,7 @@ Page({
   },
 
   sendFeedback() {
-    const { patientId, doctorId, sendContent, myRole } = this.data;
+    const { patientId, doctorId, sendContent, myRole, lineResolved } = this.data;
     const content = sendContent.trim();
 
     if (!content) {
@@ -447,8 +466,8 @@ Page({
       wx.showToast({ title: '内容不能超过500字', icon: 'none' });
       return;
     }
-    if (!doctorId) {
-      wx.showToast({ title: '未选择留言线，无法发送', icon: 'none' });
+    if (!lineResolved) {
+      wx.showToast({ title: '正在确定留言线，请稍候', icon: 'none' });
       return;
     }
 
