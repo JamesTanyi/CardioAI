@@ -109,6 +109,10 @@ def _get_cloud_db():
 def _get_sqlite_db():
     conn = sqlite3.connect(current_app.config['SQLITE_DB_PATH'])
     conn.row_factory = sqlite3.Row
+    # ★ 新增：SQLite默认不强制外键约束，必须每个连接单独开启这个PRAGMA
+    # 才会真正生效——只在建表语句里写FOREIGN KEY是不够的，没有这一句，
+    # 约束形同虚设，插入违反约束的数据也不会报错。
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
@@ -144,24 +148,10 @@ def _init_cloud_db():
     with conn.cursor() as cursor:
         cursor.execute("SET sql_mode='';")
 
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS measurements (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id VARCHAR(100) NOT NULL,
-                sbp INT NOT NULL,
-                dbp INT NOT NULL,
-                hr INT DEFAULT 75,
-                symptoms TEXT,
-                risk_level VARCHAR(20) DEFAULT 'normal',
-                risk_text TEXT,
-                analysis TEXT,
-                datetime VARCHAR(50) NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_user_id (user_id),
-                INDEX idx_datetime (datetime)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-        """)
-
+        # ★ 改：users表建表顺序挪到measurements前面——外键约束要求被引用的表
+        # 必须先存在。之前的顺序(measurements在前)导致measurements从来没能
+        # 加上"user_id必须真实存在于users表"这层约束，是"孤儿测量记录"这类
+        # bug能发生的结构性原因之一。
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -178,7 +168,42 @@ def _init_cloud_db():
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         """)
 
-        cursor.execute("CREATE TABLE IF NOT EXISTS family_bindings (id INT AUTO_INCREMENT PRIMARY KEY, family_id VARCHAR(100) NOT NULL, patient_id VARCHAR(100) NOT NULL, name VARCHAR(50) NOT NULL, status VARCHAR(20) DEFAULT 'active', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY unique_binding (family_id, patient_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
+        # ★ 新增：user_id外键约束，引用users.user_id，ON DELETE CASCADE——
+        # 这样以后删除一个用户，TA名下的测量记录会自动一起删掉，不会再留下
+        # "用户被删了、测量记录还在"这种孤儿数据。同时，任何试图插入一个
+        # users表里不存在的user_id的测量记录，数据库会直接拒绝，从根上
+        # 堵死"ID被意外复用后串到孤儿数据"这类问题，不用依赖应用层代码
+        # 每处都记得校验。
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS measurements (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                user_id VARCHAR(100) NOT NULL,
+                sbp INT NOT NULL,
+                dbp INT NOT NULL,
+                hr INT DEFAULT 75,
+                symptoms TEXT,
+                risk_level VARCHAR(20) DEFAULT 'normal',
+                risk_text TEXT,
+                analysis TEXT,
+                datetime VARCHAR(50) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_user_id (user_id),
+                INDEX idx_datetime (datetime),
+                CONSTRAINT fk_measurements_user
+                    FOREIGN KEY (user_id) REFERENCES users(user_id)
+                    ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        """)
+
+        # ★ 新增：family_id/patient_id都引用users.user_id，加外键约束。
+        # 跟measurements是同一类修复——避免账号被删后，绑定关系变成
+        # 指向不存在的人的孤儿数据。
+        cursor.execute("CREATE TABLE IF NOT EXISTS family_bindings (id INT AUTO_INCREMENT PRIMARY KEY, family_id VARCHAR(100) NOT NULL, patient_id VARCHAR(100) NOT NULL, name VARCHAR(50) NOT NULL, status VARCHAR(20) DEFAULT 'active', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY unique_binding (family_id, patient_id), CONSTRAINT fk_family_bindings_family FOREIGN KEY (family_id) REFERENCES users(user_id) ON DELETE CASCADE, CONSTRAINT fk_family_bindings_patient FOREIGN KEY (patient_id) REFERENCES users(user_id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
+        # ★ 注：feedbacks.doctor_id 和 feedback_read_progress.doctor_id 这两个
+        # 字段DEFAULT是空字符串''(代表基础线/没有医生)，不是真实user_id，
+        # 不能对这一列加外键约束(''不存在于users表，会导致基础线相关的插入
+        # 全部失败)。from_id/to_id/viewer_id/patient_id这几列理论上也该加，
+        # 但涉及更细致的处理，这次先不动，只处理这次明确提出的两张表。
         cursor.execute("CREATE TABLE IF NOT EXISTS feedbacks (id INT AUTO_INCREMENT PRIMARY KEY, from_id VARCHAR(100) NOT NULL, from_role VARCHAR(20) NOT NULL, to_id VARCHAR(100) NOT NULL, doctor_id VARCHAR(100) NOT NULL DEFAULT '', content TEXT NOT NULL, is_read INT DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_to_id (to_id), INDEX idx_to_doctor (to_id, doctor_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
         # ★ 新增：三方留言板的"已读"必须按查看者独立记录，不能用 feedbacks.is_read 那种单一开关——
         #   同一条留言，患者自己看过了，医生可能还没看过，用一个全局开关会导致患者一看
@@ -188,7 +213,7 @@ def _init_cloud_db():
         #   医生之间不能互相看到彼此的交流)，已读进度也要跟着按 doctor_id 分开记，
         #   不然一个查看者对"医生A那条线"和"医生B那条线"的已读状态会混在一起。
         cursor.execute("CREATE TABLE IF NOT EXISTS feedback_read_progress (id INT AUTO_INCREMENT PRIMARY KEY, viewer_id VARCHAR(100) NOT NULL, patient_id VARCHAR(100) NOT NULL, doctor_id VARCHAR(100) NOT NULL DEFAULT '', last_read_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY unique_viewer_patient_doctor (viewer_id, patient_id, doctor_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
-        cursor.execute("CREATE TABLE IF NOT EXISTS doctor_bindings (id INT AUTO_INCREMENT PRIMARY KEY, doctor_id VARCHAR(100) NOT NULL, patient_id VARCHAR(100) NOT NULL, doctor_name VARCHAR(50) DEFAULT '', hospital VARCHAR(200) DEFAULT '', department VARCHAR(100) DEFAULT '', status VARCHAR(20) DEFAULT 'active', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY unique_dr_binding (doctor_id, patient_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
+        cursor.execute("CREATE TABLE IF NOT EXISTS doctor_bindings (id INT AUTO_INCREMENT PRIMARY KEY, doctor_id VARCHAR(100) NOT NULL, patient_id VARCHAR(100) NOT NULL, doctor_name VARCHAR(50) DEFAULT '', hospital VARCHAR(200) DEFAULT '', department VARCHAR(100) DEFAULT '', status VARCHAR(20) DEFAULT 'active', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY unique_dr_binding (doctor_id, patient_id), CONSTRAINT fk_doctor_bindings_doctor FOREIGN KEY (doctor_id) REFERENCES users(user_id) ON DELETE CASCADE, CONSTRAINT fk_doctor_bindings_patient FOREIGN KEY (patient_id) REFERENCES users(user_id) ON DELETE CASCADE) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
         cursor.execute("CREATE TABLE IF NOT EXISTS invite_codes (id INT AUTO_INCREMENT PRIMARY KEY, code VARCHAR(10) NOT NULL UNIQUE, patient_id VARCHAR(100) NOT NULL, used INT DEFAULT 0, used_by VARCHAR(100) DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, expires_at TIMESTAMP NULL, INDEX idx_code (code), INDEX idx_patient (patient_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
         cursor.execute("CREATE TABLE IF NOT EXISTS invite_tokens (id INT AUTO_INCREMENT PRIMARY KEY, token VARCHAR(64) NOT NULL UNIQUE, patient_id VARCHAR(100) NOT NULL, role VARCHAR(20) NOT NULL, used INT DEFAULT 0, used_by VARCHAR(100) DEFAULT '', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, expires_at TIMESTAMP NULL, INDEX idx_token (token), INDEX idx_patient (patient_id)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4")
 
@@ -241,13 +266,22 @@ def _init_cloud_db():
 def _init_sqlite_db():
     conn = _get_sqlite_db()
     with conn:
-        conn.execute("CREATE TABLE IF NOT EXISTS measurements (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, sbp INTEGER NOT NULL, dbp INTEGER NOT NULL, hr INTEGER DEFAULT 75, symptoms TEXT DEFAULT '[]', risk_level TEXT DEFAULT 'normal', risk_text TEXT DEFAULT '', analysis TEXT DEFAULT '{}', datetime TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')))")
+        # ★ 改：users表调到measurements表前面创建，外键约束要求被引用的表
+        # 必须先存在——跟MySQL那边(_init_cloud_db)是同一处修复，本地开发
+        # 环境之前没有跟着一起改，导致本地测试完全没有这层防护。
         conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE NOT NULL, name TEXT DEFAULT '', age INTEGER DEFAULT 0, gender TEXT DEFAULT '', role TEXT DEFAULT 'user', birth_date TEXT DEFAULT '', openid TEXT UNIQUE, health_history TEXT, created_at TEXT DEFAULT (datetime('now')))")
-        conn.execute("CREATE TABLE IF NOT EXISTS family_bindings (id INTEGER PRIMARY KEY AUTOINCREMENT, family_id TEXT NOT NULL, patient_id TEXT NOT NULL, name TEXT NOT NULL, status TEXT DEFAULT 'active', created_at TEXT DEFAULT (datetime('now')), UNIQUE(family_id, patient_id))")
+        # ★ 新增：user_id外键约束，引用users.user_id，ON DELETE CASCADE，
+        # 跟MySQL那边保持一致——删除用户会自动级联删除TA的测量记录，
+        # 且无法插入一条指向不存在用户的测量记录。
+        conn.execute("CREATE TABLE IF NOT EXISTS measurements (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, sbp INTEGER NOT NULL, dbp INTEGER NOT NULL, hr INTEGER DEFAULT 75, symptoms TEXT DEFAULT '[]', risk_level TEXT DEFAULT 'normal', risk_text TEXT DEFAULT '', analysis TEXT DEFAULT '{}', datetime TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')), FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE)")
+        # ★ 新增：跟MySQL分支同步，family_id/patient_id/doctor_id都加外键
+        # 约束引用users.user_id。feedbacks/feedback_read_progress的doctor_id
+        # 是DEFAULT ''代表基础线，不是真实user_id，不能加约束，这次不动。
+        conn.execute("CREATE TABLE IF NOT EXISTS family_bindings (id INTEGER PRIMARY KEY AUTOINCREMENT, family_id TEXT NOT NULL, patient_id TEXT NOT NULL, name TEXT NOT NULL, status TEXT DEFAULT 'active', created_at TEXT DEFAULT (datetime('now')), UNIQUE(family_id, patient_id), FOREIGN KEY (family_id) REFERENCES users(user_id) ON DELETE CASCADE, FOREIGN KEY (patient_id) REFERENCES users(user_id) ON DELETE CASCADE)")
         conn.execute("CREATE TABLE IF NOT EXISTS feedbacks (id INTEGER PRIMARY KEY AUTOINCREMENT, from_id TEXT NOT NULL, from_role TEXT NOT NULL, to_id TEXT NOT NULL, doctor_id TEXT NOT NULL DEFAULT '', content TEXT NOT NULL, is_read INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')))")
         # ★ 新增：跟 MySQL 那边一样，各端独立记录已读进度
         conn.execute("CREATE TABLE IF NOT EXISTS feedback_read_progress (id INTEGER PRIMARY KEY AUTOINCREMENT, viewer_id TEXT NOT NULL, patient_id TEXT NOT NULL, doctor_id TEXT NOT NULL DEFAULT '', last_read_at TEXT DEFAULT (datetime('now')), UNIQUE(viewer_id, patient_id, doctor_id))")
-        conn.execute("CREATE TABLE IF NOT EXISTS doctor_bindings (id INTEGER PRIMARY KEY AUTOINCREMENT, doctor_id TEXT NOT NULL, patient_id TEXT NOT NULL, doctor_name TEXT DEFAULT '', hospital TEXT DEFAULT '', department TEXT DEFAULT '', status TEXT DEFAULT 'active', created_at TEXT DEFAULT (datetime('now')), UNIQUE(doctor_id, patient_id))")
+        conn.execute("CREATE TABLE IF NOT EXISTS doctor_bindings (id INTEGER PRIMARY KEY AUTOINCREMENT, doctor_id TEXT NOT NULL, patient_id TEXT NOT NULL, doctor_name TEXT DEFAULT '', hospital TEXT DEFAULT '', department TEXT DEFAULT '', status TEXT DEFAULT 'active', created_at TEXT DEFAULT (datetime('now')), UNIQUE(doctor_id, patient_id), FOREIGN KEY (doctor_id) REFERENCES users(user_id) ON DELETE CASCADE, FOREIGN KEY (patient_id) REFERENCES users(user_id) ON DELETE CASCADE)")
         conn.execute("CREATE TABLE IF NOT EXISTS invite_codes (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, patient_id TEXT NOT NULL, used INTEGER DEFAULT 0, used_by TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')), expires_at TEXT)")
         conn.execute("CREATE TABLE IF NOT EXISTS invite_tokens (id INTEGER PRIMARY KEY AUTOINCREMENT, token TEXT NOT NULL UNIQUE, patient_id TEXT NOT NULL, role TEXT NOT NULL, used INTEGER DEFAULT 0, used_by TEXT DEFAULT '', created_at TEXT DEFAULT (datetime('now')), expires_at TEXT)")
 

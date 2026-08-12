@@ -9,6 +9,8 @@
 import matplotlib.pyplot as plt
 import matplotlib
 import os
+import time
+import uuid
 from datetime import datetime
 
 # 同 plots_risk.py：部署环境通常没有中文字体，这里做同样的兜底配置。
@@ -124,10 +126,15 @@ def plot_symptom_timeline(records, events_by_segment, output_dir):
     ax.get_xaxis().set_visible(False)
 
     # 保存
+    # ★ 修复：跟plots_risk.py同样的问题——文件名固定是"symptom_timeline.png"，
+    # 所有患者、每一次分析都写同一个文件，互相覆盖，导致回看历史报告时
+    # 显示的是全应用范围内最新那次的症状图，跟这条记录本身无关。改成
+    # 时间戳+随机后缀的唯一文件名。
     os.makedirs(output_dir, exist_ok=True)
-    path = os.path.join(output_dir, "symptom_timeline.png")
+    unique_suffix = f"{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+    out_path = os.path.join(output_dir, f"symptom_timeline_{unique_suffix}.png")
     plt.tight_layout()
-    plt.savefig(path, dpi=150)
+    plt.savefig(out_path, dpi=150)
     plt.close()
 
-    return path
+    return out_path

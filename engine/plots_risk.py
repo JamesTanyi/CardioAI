@@ -10,6 +10,8 @@
 import matplotlib.pyplot as plt
 import matplotlib
 import os
+import time
+import uuid
 
 # 部署环境（容器/云托管）通常不带中文字体，不配置会导致图里中文全部变成方框。
 # 按优先级尝试几个常见的中文字体，一个都找不到就退回默认。
@@ -100,8 +102,15 @@ def plot_risk_scores(risk_bundle, output_dir):
     ax.set_ylabel("风险评分（0–1）")
 
     # 保存
+    # ★ 修复：之前这里文件名固定是"risk_scores.png"——所有患者、每一次
+    # 分析都写同一个文件，互相覆盖。这不只是"并发撞车"的问题：图表URL是
+    # 提交测量时生成并存进那条历史记录里的，之后回看这条历史报告，理论上
+    # 该显示"当时那次分析"对应的图，但因为文件名固定，回看的永远是当前
+    # 全应用范围内最新生成的那张图，跟这条记录本身完全无关，医疗类应用
+    # 这是不能接受的。改成时间戳+随机后缀的唯一文件名，每次分析各自独立。
     os.makedirs(output_dir, exist_ok=True)
-    out_path = os.path.join(output_dir, "risk_scores.png")
+    unique_suffix = f"{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
+    out_path = os.path.join(output_dir, f"risk_scores_{unique_suffix}.png")
     plt.tight_layout()
     plt.savefig(out_path, dpi=150)
     plt.close()

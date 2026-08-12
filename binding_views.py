@@ -13,16 +13,30 @@ from services import save_measurement
 binding_bp = Blueprint('binding', __name__)
 
 
-def _generate_user_id(role):
+def _generate_user_id(role, cursor=None, ph=None):
     """
     ★ 新增：user_id 生成逻辑从前端搬到后端——
     身份识别体系重构后，openid 才是真正的身份锚点，user_id 只是内部主键，
     由后端统一决定何时创建新的（不再信任前端生成的随机字符串）。
+
+    ★ 改：加上历史唯一性校验——之前生成完直接返回，从来没检查这个ID
+    字符串是不是已经在users表里出现过。虽然"毫秒时间戳+6位随机数"两次
+    独立生成撞出完全相同字符串的概率极低，但这只是概率低，不是不可能，
+    而且这是唯一能在应用层拦住这类问题的地方(数据库层的外键约束是第二
+    道防线，但生成阶段能拦住更好，不用等到插入时才失败)。调用方不传
+    cursor/ph时保持旧行为(不做校验)，向后兼容。
     """
     prefix = {'doctor': 'D', 'family': 'F'}.get(role, 'U')
-    ts = format(int(time.time() * 1000), 'x').upper()
-    rand = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    return f"{prefix}{ts}{rand}"
+    for _ in range(5):  # 理论上第一次就该成功，多给几次重试机会兜底
+        ts = format(int(time.time() * 1000), 'x').upper()
+        rand = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        candidate = f"{prefix}{ts}{rand}"
+        if cursor is None or ph is None:
+            return candidate
+        cursor.execute(f"SELECT 1 FROM users WHERE user_id = {ph}", (candidate,))
+        if not cursor.fetchone():
+            return candidate
+    raise RuntimeError("多次尝试仍无法生成唯一user_id，请检查_generate_user_id实现")
 
 
 def _resolve_viewer_user_id(cursor, ph, openid, viewer_name, role):
@@ -49,7 +63,7 @@ def _resolve_viewer_user_id(cursor, ph, openid, viewer_name, role):
                 (viewer_name, existing['user_id'])
             )
         return existing['user_id']
-    new_id = _generate_user_id(role)
+    new_id = _generate_user_id(role, cursor, ph)
     cursor.execute(
         f"INSERT INTO users (user_id, name, role, openid) VALUES ({ph}, {ph}, {ph}, {ph})",
         (new_id, viewer_name, role, openid)
@@ -330,7 +344,7 @@ def register_user():
                 UPDATE users SET name={ph}, age={ph}, gender={ph}, role={ph}, birth_date={ph}, health_history={ph} WHERE openid={ph}
             """, (name, age, gender, role, birth_date, health_history_json, openid))
         else:
-            user_id = _generate_user_id(role)
+            user_id = _generate_user_id(role, cursor, ph)
             cursor.execute(f"""
                 INSERT INTO users (user_id, name, age, gender, role, birth_date, openid, health_history) 
                 VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
