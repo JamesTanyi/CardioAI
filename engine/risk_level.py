@@ -1,4 +1,3 @@
-
 from .lifecycle import calculate_lifecycle_state
 
 HIGH_RISK_SYMPTOMS = {"chest_pain", "weakness_one_side", "slurred_speech", "vision_loss", "confusion", "thunderclap_headache"}
@@ -64,16 +63,15 @@ def _extract_context(records, steady_data, events_by_segment):
     dbp = float(_get_val(latest, 'dbp', 80))
     hr = float(_get_val(latest, 'hr', 70))
 
+    # ★ 修复：症状只能看"这次测量"本身提交的，不能往前翻整个窗口。
+    # events_by_segment(steady_state.py算的)汇总的是"最近一整个窗口(可能
+    # 是最近20-30条记录)里出现过的所有症状"，是完全不同的东西——之前这里
+    # 把两者merge在一起，会导致哪怕是几周前某一次测量时勾选过的症状，只要
+    # 还落在窗口范围内，这次分析都会被当成"这次也有症状"，产生"您提到了
+    # 身体不适"这种失实的文案，跟当前这次测量完全无关。不再merge，
+    # current_symptoms只取latest这一条记录自己的symptoms/events字段。
     raw_evs = _get_val(latest, 'events', []) or _get_val(latest, 'symptoms', [])
     current_symptoms = [str(e).lower().strip() for e in raw_evs] if isinstance(raw_evs, list) else []
-
-    if events_by_segment and isinstance(events_by_segment, list) and len(events_by_segment) > 0:
-        recent_segment_events = events_by_segment[-1]
-        if isinstance(recent_segment_events, list):
-            for e in recent_segment_events:
-                s_clean = str(e).lower().strip()
-                if s_clean not in current_symptoms:
-                    current_symptoms.append(s_clean)
 
     # ★ 改：不再从steady_data["base"]取单一SBP标量+对称band，改用
     # steady_state.py这次新增的bands(多指标非对称band)/current_deviation
