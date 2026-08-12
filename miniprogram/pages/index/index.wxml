@@ -117,7 +117,9 @@
   <!-- 更多功能入口 -->
   <view class="more-entry" bindtap="goToMore">
     <text class="more-text">更多功能</text>
-    <view wx:if="{{selfUnreadFeedbackCount > 0}}" class="entry-badge">{{selfUnreadFeedbackCount > 99 ? '99+' : selfUnreadFeedbackCount}}</view>
+    <view wx:if="{{selfUnreadFeedbackCount > 0}}" class="entry-badge">
+      <text class="entry-badge-icon">🔔</text>{{selfUnreadFeedbackCount > 99 ? '99+' : selfUnreadFeedbackCount}}
+    </view>
     <text class="more-arrow">›</text>
   </view>
 

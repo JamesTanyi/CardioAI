@@ -172,6 +172,7 @@ def _init_cloud_db():
                 role VARCHAR(20) DEFAULT 'user',
                 birth_date VARCHAR(10) DEFAULT '',
                 openid VARCHAR(100) NULL DEFAULT NULL,
+                health_history TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE KEY unique_openid (openid)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -241,7 +242,7 @@ def _init_sqlite_db():
     conn = _get_sqlite_db()
     with conn:
         conn.execute("CREATE TABLE IF NOT EXISTS measurements (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, sbp INTEGER NOT NULL, dbp INTEGER NOT NULL, hr INTEGER DEFAULT 75, symptoms TEXT DEFAULT '[]', risk_level TEXT DEFAULT 'normal', risk_text TEXT DEFAULT '', analysis TEXT DEFAULT '{}', datetime TEXT NOT NULL, created_at TEXT DEFAULT (datetime('now')))")
-        conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE NOT NULL, name TEXT DEFAULT '', age INTEGER DEFAULT 0, gender TEXT DEFAULT '', role TEXT DEFAULT 'user', birth_date TEXT DEFAULT '', openid TEXT UNIQUE, created_at TEXT DEFAULT (datetime('now')))")
+        conn.execute("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT UNIQUE NOT NULL, name TEXT DEFAULT '', age INTEGER DEFAULT 0, gender TEXT DEFAULT '', role TEXT DEFAULT 'user', birth_date TEXT DEFAULT '', openid TEXT UNIQUE, health_history TEXT, created_at TEXT DEFAULT (datetime('now')))")
         conn.execute("CREATE TABLE IF NOT EXISTS family_bindings (id INTEGER PRIMARY KEY AUTOINCREMENT, family_id TEXT NOT NULL, patient_id TEXT NOT NULL, name TEXT NOT NULL, status TEXT DEFAULT 'active', created_at TEXT DEFAULT (datetime('now')), UNIQUE(family_id, patient_id))")
         conn.execute("CREATE TABLE IF NOT EXISTS feedbacks (id INTEGER PRIMARY KEY AUTOINCREMENT, from_id TEXT NOT NULL, from_role TEXT NOT NULL, to_id TEXT NOT NULL, doctor_id TEXT NOT NULL DEFAULT '', content TEXT NOT NULL, is_read INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now')))")
         # ★ 新增：跟 MySQL 那边一样，各端独立记录已读进度

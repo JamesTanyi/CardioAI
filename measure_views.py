@@ -57,6 +57,21 @@ def analyze_measurement():
             rec['datetime'] = parse_to_datetime_obj(rec.get('datetime'))
             history_list.append(rec)
 
+        # ★ 新增：查一下这个患者注册时填写的既往病史，传给引擎供Path B
+        # 判定敏感度调整用(有高危心血管病史的人阈值更容易触发就医建议)。
+        # 查询失败/字段为空都不影响主流程，兜底成空列表。
+        health_history_list = []
+        try:
+            cursor.execute(f"SELECT health_history FROM users WHERE user_id = {ph}", (user_id,))
+            user_row = cursor.fetchone()
+            if user_row:
+                raw_hh = dict(user_row).get('health_history')
+                if raw_hh:
+                    health_history_list = json.loads(raw_hh)
+        except Exception as hh_err:
+            print(f"⚠️ 读取health_history失败(不影响主流程): {hh_err}", flush=True)
+            health_history_list = []
+
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
         current_record = {
             "user_id": user_id,
@@ -67,7 +82,7 @@ def analyze_measurement():
             "datetime": parse_to_datetime_obj(now_str)
         }
 
-        engine = CardiovascularEngine(history=history_list, current=current_record)
+        engine = CardiovascularEngine(history=history_list, current=current_record, health_history=health_history_list)
         engine_res = engine.run_all_diagnostics()
 
         risk_level = engine_res.get("risk_level", "normal")

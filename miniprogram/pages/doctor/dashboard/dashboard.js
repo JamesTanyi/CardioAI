@@ -36,7 +36,9 @@ Page({
     highRiskCount: 0,
     moderateRiskCount: 0,
     unmonitoredCount: 0,
-    patientRiskMap: {}
+    patientRiskMap: {},
+    patientUnreadMap: {},
+    selectedPatientUnread: 0
   },
 
   /**
@@ -154,6 +156,15 @@ Page({
         department: p.department || ''
       }));
 
+      // ★ 新增：unreadFeedbackCount 后端本来就返回了，之前 map 的时候漏掉了，
+      //   导致"留言"按钮永远不知道当前选中患者有没有未读——不是被提前标记已读，
+      //   是这份数据从一开始就没被带过来。这里单独存一份 patientId -> 未读数
+      //   的映射，跟 patientRiskMap 是同一个模式。
+      const patientUnreadMap = {};
+      doctorPatients.forEach(p => {
+        patientUnreadMap[p.patientId] = p.unreadFeedbackCount || 0;
+      });
+
       // ★ 改：riskMap 用正确的字段名 riskLevel（原来读 p.risk，永远是 undefined）
       const riskMap = {};
       doctorPatients.forEach(p => {
@@ -187,8 +198,10 @@ Page({
         patientTotal: doctorPatients.length,
         patientHasMore: false,
         patientRiskMap: riskMap,
+        patientUnreadMap,
         selectedPatientId: autoSelect || '',
         selectedPatientName: autoSelectName || autoSelect || '', // ★ 新增
+        selectedPatientUnread: patientUnreadMap[autoSelect] || 0, // ★ 新增：喂给"留言"按钮的角标
         isViewingPatient: !!autoSelect,
         highRiskCount,
         moderateRiskCount,
@@ -364,6 +377,7 @@ Page({
     this.setData({
       selectedPatientId: patientId,
       selectedPatientName: patientName, // ★ 新增
+      selectedPatientUnread: this.data.patientUnreadMap[patientId] || 0, // ★ 新增：切换患者时角标跟着换
       showPatientPicker: false,
       isViewingPatient: patientId !== ''
     });
@@ -379,6 +393,7 @@ Page({
     this.setData({
       selectedPatientId: '',
       selectedPatientName: '',
+      selectedPatientUnread: 0, // ★ 新增
       showPatientPicker: false,
       isViewingPatient: false
     });

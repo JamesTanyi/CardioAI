@@ -137,6 +137,11 @@ page {
   border-left: 6rpx solid #E8E8E8;
 }
 
+.feed-card.unread {
+  background: #FFF7F6;
+  border-left: 6rpx solid #FF3B30;
+}
+
 .feed-body {
   flex: 1;
   min-width: 0;
@@ -198,6 +203,20 @@ page {
 .role-patient {
   background: #FFF3E0;
   color: #FF9800;
+}
+
+.feed-time-wrap {
+  display: flex;
+  align-items: center;
+}
+
+.unread-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: #FF3B30;
+  margin-right: 8rpx;
+  flex-shrink: 0;
 }
 
 .feed-time {

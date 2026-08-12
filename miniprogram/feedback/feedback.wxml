@@ -41,7 +41,7 @@
     <view
       wx:for="{{feedbacks}}"
       wx:key="id"
-      class="feed-card {{item.isMine ? 'mine' : 'other'}} {{manageMode ? 'manage' : ''}}"
+      class="feed-card {{item.isMine ? 'mine' : 'other'}} {{item.isUnread ? 'unread' : ''}} {{manageMode ? 'manage' : ''}}"
       data-id="{{item.id}}"
       bindtap="toggleSelectFeedback"
     >
@@ -49,10 +49,13 @@
       <view wx:if="{{manageMode}}" class="feed-checkbox {{selectedIds.indexOf(item.id) > -1 ? 'checked' : ''}}"></view>
 
       <view class="feed-body">
-        <!-- 头部：角色标签 + 时间 -->
+        <!-- 头部：角色标签 + 时间（未读加一个红点） -->
         <view class="feed-header">
           <text class="role-tag {{item.roleClass}}">{{item.roleLabel}}</text>
-          <text class="feed-time">{{item.timeStr}}</text>
+          <view class="feed-time-wrap">
+            <text wx:if="{{item.isUnread}}" class="unread-dot"></text>
+            <text class="feed-time">{{item.timeStr}}</text>
+          </view>
         </view>
 
         <!-- 反馈内容 -->

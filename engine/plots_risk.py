@@ -46,49 +46,64 @@ def _arrow(value):
         return "↓"
 
 
+# ★ 新增：Path A内部tier(低/关注/中)映射成0-1的分数，供图表柱状高度用。
+# risk_level.py重构后不再有chronic_tension/acute_push这两个连续分数，
+# 图表改用tier位置代替。
+TIER_SCORE_MAP = {"低": 0.2, "关注": 0.6, "中": 0.95}
+
+
 # ==========================
 # 主函数：生成风险评分图
 # ==========================
 
 def plot_risk_scores(risk_bundle, output_dir):
     """
-    输入：
-        risk_bundle = {
-            "symptom_level": ...,
-            "chronic_tension": float,
-            "acute_push": float,
-            "acute_risk_level": str
-        }
+    ★ 改：risk_level.py重构后，risk_bundle不再有chronic_tension/acute_push
+    这两个字段(旧的两个连续分数比大小的判断方式已经被Path A/B两条路径取代)，
+    这里改用新schema：
+        path                Path A 或 Path B
+        tier                Path A内部低/关注/中(Path B时为None)
+        path_b_triggers     Path B命中了哪几条(Path A时为空列表)
+        acute_risk_level    兼容旧枚举值(low/moderate/moderate_high/critical)
+        plaque_risk.score   独立维度，不受这次重构影响，继续可用
 
     输出：
         图像文件路径
     """
+    path = risk_bundle.get("path", "A")
+    tier = risk_bundle.get("tier")
+    level = risk_bundle.get("acute_risk_level", "low")
+    plaque_score = risk_bundle.get("plaque_risk", {}).get("score", 0.0)
 
-    chronic = risk_bundle["chronic_tension"]
-    acute = risk_bundle["acute_push"]
-    level = risk_bundle["acute_risk_level"]
+    if path == "B":
+        deviation_score = 1.0
+        triggers = risk_bundle.get("path_b_triggers", [])
+        tier_label = "Path B · " + "、".join(triggers) if triggers else "Path B"
+    else:
+        deviation_score = TIER_SCORE_MAP.get(tier, 0.2)
+        tier_label = f"Path A · {tier or '低'}"
 
     color = RISK_COLOR.get(level, "#9E9E9E")  # 未知等级兜底为灰色，不再直接 KeyError 崩溃
 
     fig, ax = plt.subplots(figsize=(6, 4))
 
-    # 两个柱状图
-    ax.bar(["慢性张力", "急性推力"], [chronic, acute], color=[color, color], alpha=0.8)
+    # 两个柱状图：偏离/紧急程度(Path A按tier映射，Path B直接拉满) + 斑块压力风险(独立维度不变)
+    ax.bar(["偏离/紧急程度", "斑块压力风险"], [deviation_score, plaque_score], color=[color, color], alpha=0.8)
 
     # 添加数值 + 箭头
-    ax.text(0, chronic + 0.03, f"{chronic:.2f} {_arrow(chronic)}", ha="center", fontsize=12)
-    ax.text(1, acute + 0.03, f"{acute:.2f} {_arrow(acute)}", ha="center", fontsize=12)
+    ax.text(0, deviation_score + 0.03, f"{deviation_score:.2f} {_arrow(deviation_score)}", ha="center", fontsize=12)
+    ax.text(1, plaque_score + 0.03, f"{plaque_score:.2f} {_arrow(plaque_score)}", ha="center", fontsize=12)
 
     # 标题
-    ax.set_title(f"急性风险等级：{level}", fontsize=14, color=color)
+    ax.set_title(f"{tier_label} · 综合等级：{level}", fontsize=14, color=color)
     ax.set_ylim(0, 1.2)
     ax.set_ylabel("风险评分（0–1）")
 
     # 保存
     os.makedirs(output_dir, exist_ok=True)
-    path = os.path.join(output_dir, "risk_scores.png")
+    out_path = os.path.join(output_dir, "risk_scores.png")
     plt.tight_layout()
-    plt.savefig(path, dpi=150)
+    plt.savefig(out_path, dpi=150)
     plt.close()
 
-    return path
+    return out_path

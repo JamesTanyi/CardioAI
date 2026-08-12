@@ -134,6 +134,52 @@ page {
 .fd-risk-badge.moderate { background: #FFF3E0; color: #E65100; }
 .fd-risk-badge.high { background: #FFEBEE; color: #C62828; }
 
+/* ====== 留言入口 + 未读角标 ====== */
+.fd-feedback-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 16rpx;
+  padding: 12rpx 20rpx;
+  background: #F0F6FF;
+  border-radius: 16rpx;
+  font-size: 24rpx;
+  color: #3A6FF5;
+  font-weight: 600;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.fd-feedback-btn:active {
+  background: #E0EBFF;
+}
+
+.fd-feedback-dot {
+  position: absolute;
+  top: -14rpx;
+  right: -14rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  padding: 0 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FF3B30;
+  border-radius: 16rpx;
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: bold;
+  line-height: 1;
+  box-shadow: 0 2rpx 8rpx rgba(255, 59, 48, 0.45);
+  animation: badge-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+
 /* ====== 统计网格 ====== */
 .fd-stats-grid {
   display: grid;

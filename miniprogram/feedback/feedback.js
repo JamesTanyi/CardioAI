@@ -213,6 +213,14 @@ Page({
       });
   },
 
+  // 本地已读基准的存储key：按"谁在看+看哪个患者+看哪条线"区分，避免不同患者/
+  // 不同医生诊疗线之间互相污染未读状态
+  _getLastSeenKey() {
+    const { patientId, doctorId } = this.data;
+    const viewerId = wx.getStorageSync('app_user_id') || '';
+    return `feedback_last_seen_${viewerId}_${patientId}_${doctorId}`;
+  },
+
   loadFeedbacks() {
     const { patientId, doctorId, lineResolved } = this.data;
     const viewerId = wx.getStorageSync('app_user_id') || '';
@@ -242,18 +250,35 @@ Page({
           //   JOIN users 查出来；查不到(比如账号异常)时退回角色文案兜底，不留空白。
           const roleIconMap = { doctor: '👨‍⚕️', family: '👨‍👩‍👧', patient: '🙋' };
           const roleFallbackMap = { doctor: '医生', family: '家属', patient: '患者本人' };
+          // ★ 新增：逐条未读变色——纯前端本地记录，不依赖后端逐条已读状态。
+          //   key按"谁在看+看哪个患者+看哪条线"区分，取本地记录的"上次看到这条线
+          //   到什么时间"，比这个时间新、且不是自己发的，就是未读。换设备/清缓存
+          //   会丢失这个本地记录(历史消息会不再标红)，但内容本身还在，不影响能不能
+          //   看到留言，只是不再有"新消息"提示，权衡后可接受，不需要为此上后端。
+          const readKey = this._getLastSeenKey();
+          const lastSeenAt = wx.getStorageSync(readKey) || '';
           const feedbacks = (res.data || []).map((item) => {
             const icon = roleIconMap[item.from_role] || '';
             const displayName = item.sender_name || roleFallbackMap[item.from_role] || item.from_role;
+            const isMine = item.from_id === viewerId;
             return {
               ...item,
               roleLabel: `${icon} ${displayName}`.trim(),
               roleClass: `role-${item.from_role}`,
-              isMine:    item.from_id === viewerId,
+              isMine,
+              isUnread:  !!lastSeenAt && !isMine && item.created_at > lastSeenAt,
               timeStr:   this.formatTime(item.created_at)
             };
           });
           this.setData({ feedbacks, isEmpty: feedbacks.length === 0 });
+          // 渲染完再把本地基准更新成这次看到的最新一条时间，下次进来才能比出"新消息"
+          if (feedbacks.length) {
+            const latest = feedbacks.reduce(
+              (max, it) => (it.created_at > max ? it.created_at : max),
+              feedbacks[0].created_at
+            );
+            wx.setStorageSync(readKey, latest);
+          }
         } else {
           wx.showToast({ title: res.error || '加载失败', icon: 'none' });
           this.setData({ isEmpty: true });
@@ -265,20 +290,27 @@ Page({
       });
   },
 
+  // ★ 改：相对时间("刚刚"/"N分钟前")改成具体时间——留言板是给患者/家属/医生
+  //   核对"这句话是什么时候说的"用的，相对时间过一会儿就得重新推算，具体时间更可靠。
+  //   今天的留言只显示 时:分；跨天显示 月-日 时:分；跨年再带上年份。
   formatTime(dateStr) {
     if (!dateStr) return '';
     try {
       const date = new Date(dateStr.replace(/-/g, '/'));
       const now  = new Date();
-      const diff = now - date;
-      const mins  = Math.floor(diff / 60000);
-      const hours = Math.floor(diff / 3600000);
-      const days  = Math.floor(diff / 86400000);
-      if (mins  < 1)  return '刚刚';
-      if (mins  < 60) return `${mins}分钟前`;
-      if (hours < 24) return `${hours}小时前`;
-      if (days  < 7)  return `${days}天前`;
-      return `${date.getMonth()+1}/${date.getDate()}`;
+      const pad  = (n) => String(n).padStart(2, '0');
+      const hm   = `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+
+      const isToday = date.getFullYear() === now.getFullYear()
+        && date.getMonth() === now.getMonth()
+        && date.getDate() === now.getDate();
+      if (isToday) return hm;
+
+      const isThisYear = date.getFullYear() === now.getFullYear();
+      const md = `${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+      if (isThisYear) return `${md} ${hm}`;
+
+      return `${date.getFullYear()}-${md} ${hm}`;
     } catch (e) {
       return '';
     }

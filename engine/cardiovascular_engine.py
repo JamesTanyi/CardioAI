@@ -44,14 +44,18 @@ def _to_public_url(local_path):
 
 
 class CardiovascularEngine:
-    def __init__(self, history: List[Dict], current: Dict):
+    def __init__(self, history: List[Dict], current: Dict, health_history: List[str] = None):
         """
         初始化引擎
         :param history: 历史测量记录列表 (已按时间归一化)
         :param current: 当前测量记录 (已按时间归一化)
+        :param health_history: ★ 新增：患者既往病史(注册时勾选的列表，
+            如["高血压","冠心病","心肌梗死"])，供risk_level.py的Path B
+            判断时提高敏感度用(有高危病史的人阈值应该更容易触发就医建议)
         """
         self.history = history
         self.current = current
+        self.health_history = health_history or []
 
         # 合并记录并按时间排序，用于趋势分析
         self.all_records = history + [current]
@@ -82,20 +86,23 @@ class CardiovascularEngine:
         print(f"      ... 模式: Dip={patterns.get('nocturnal_dip')}, Surge={patterns.get('morning_surge')}", flush=True)
 
         # 2. 核心风险与状态评估
-        # 2.1 风险评估 (Risk Level)
-        print("   -> 正在执行: 风险评估 (Risk Level)...", flush=True)
-        risk_bundle = assess_risk_bundle(records, steady_data, events_by_segment, patterns)
-        print(f"      ... 风险评估: Level={risk_bundle.get('acute_risk_level')}, Plaque={risk_bundle.get('plaque_risk', {}).get('level')}", flush=True)
-
-        # 2.2 结构变异 (Structure Shift)
-        print("   -> 正在执行: 结构变异 (Structure Shift)...", flush=True)
-        structure_shift = analyze_structure_shift(steady_data)
-        print(f"      ... 结构变异: Level={structure_shift.get('shift_level')}", flush=True)
-
-        # 2.3 急性动力学 (Emergency)
+        # 2.1 急性动力学 (Emergency) —— ★ 改：挪到风险评估之前算，因为
+        #     risk_level.py的Path B判断现在要用它的结果，不能像原来那样
+        #     算完只扔给医生时间轴看、自己却从来用不上
         print("   -> 正在执行: 急性动力学 (Emergency)...", flush=True)
         emergency_info = analyze_emergency(records, steady_data)
         print(f"      ... 急性事件: {emergency_info.get('emergency')}", flush=True)
+
+        # 2.2 风险评估 (Risk Level) —— ★ 改：把emergency_info和health_history
+        #     一起传进去，供Path A/B判断使用
+        print("   -> 正在执行: 风险评估 (Risk Level)...", flush=True)
+        risk_bundle = assess_risk_bundle(records, steady_data, events_by_segment, patterns, emergency_info, self.health_history)
+        print(f"      ... 风险评估: Level={risk_bundle.get('acute_risk_level')}, Plaque={risk_bundle.get('plaque_risk', {}).get('level')}", flush=True)
+
+        # 2.3 结构变异 (Structure Shift)
+        print("   -> 正在执行: 结构变异 (Structure Shift)...", flush=True)
+        structure_shift = analyze_structure_shift(steady_data)
+        print(f"      ... 结构变异: Level={structure_shift.get('shift_level')}", flush=True)
 
         # 2.4 生命周期状态 (Lifecycle)
         print("   -> 正在执行: 生命周期状态 (Lifecycle)...", flush=True)

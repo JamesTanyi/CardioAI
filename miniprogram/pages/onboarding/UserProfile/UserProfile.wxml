@@ -100,7 +100,7 @@
   <view class="card">
     <view class="section-title">既往病史</view>
     <view class="tags-container">
-      <block wx:for="{{['高血压', '糖尿病', '冠心病', '高血脂', '吸烟']}}" wx:key="*this">
+      <block wx:for="{{['高血压', '糖尿病', '冠心病', '高血脂', '吸烟', '心肌梗死', '心律失常/房颤', '心力衰竭', '脑卒中(中风)', '心脏支架/搭桥手术史']}}" wx:key="*this">
         <view class="tag {{utils.includes(healthHistory, item) ? 'selected' : ''}}" bindtap="onToggleHealth" data-item="{{item}}">{{item}}</view>
       </block>
       <view class="tag {{utils.hasOther(healthHistory) ? 'selected' : ''}}" bindtap="onToggleOther">其他</view>

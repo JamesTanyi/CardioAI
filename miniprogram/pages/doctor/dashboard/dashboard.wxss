@@ -20,6 +20,7 @@ page {
 }
 
 .ps-feedback-btn {
+  position: relative;
   flex-shrink: 0;
   margin-left: 16rpx;
   padding: 12rpx 20rpx;
@@ -29,6 +30,31 @@ page {
   font-weight: 600;
   border-radius: 10rpx;
   white-space: nowrap;
+}
+
+.ps-feedback-badge {
+  position: absolute;
+  top: -14rpx;
+  right: -14rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  padding: 0 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #FF3B30;
+  border-radius: 16rpx;
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: bold;
+  line-height: 1;
+  box-shadow: 0 2rpx 8rpx rgba(255, 59, 48, 0.45);
+  animation: ps-badge-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes ps-badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
 }
 
 .ps-label {

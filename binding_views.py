@@ -306,6 +306,11 @@ def register_user():
         gender = data.get('gender', '')
         role = data.get('role', 'user')
         birth_date = data.get('birth_date') or data.get('birthDate') or ''
+        # ★ 新增：既往病史——之前前端onSubmit压根没把这个字段发过来，这里
+        #   一直没读取。用JSON字符串存(跟history_views.py存symptoms字段是
+        #   同一种做法)，读取时json.loads解析回数组。
+        health_history = data.get('health_history') or data.get('healthHistory') or []
+        health_history_json = json.dumps(health_history, ensure_ascii=False)
 
         if not openid or not name:
             return jsonify({"code": -1, "msg": "核心字段缺失（缺少 openid 或姓名），大脑拒绝写入"}), 400
@@ -322,14 +327,14 @@ def register_user():
             existing = dict(existing)
             user_id = existing['user_id']
             cursor.execute(f"""
-                UPDATE users SET name={ph}, age={ph}, gender={ph}, role={ph}, birth_date={ph} WHERE openid={ph}
-            """, (name, age, gender, role, birth_date, openid))
+                UPDATE users SET name={ph}, age={ph}, gender={ph}, role={ph}, birth_date={ph}, health_history={ph} WHERE openid={ph}
+            """, (name, age, gender, role, birth_date, health_history_json, openid))
         else:
             user_id = _generate_user_id(role)
             cursor.execute(f"""
-                INSERT INTO users (user_id, name, age, gender, role, birth_date, openid) 
-                VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
-            """, (user_id, name, age, gender, role, birth_date, openid))
+                INSERT INTO users (user_id, name, age, gender, role, birth_date, openid, health_history) 
+                VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
+            """, (user_id, name, age, gender, role, birth_date, openid, health_history_json))
 
         conn.commit()
         print(f"🟢 [DB] 用户 {name}({user_id}) 注册数据成功写入！openid={openid}", flush=True)

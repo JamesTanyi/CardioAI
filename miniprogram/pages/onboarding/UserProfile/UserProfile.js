@@ -254,7 +254,11 @@ Page({
         age,
         gender,
         role,
-        birth_date: birthDate // ★ 新增：把出生日期一并传给后端，供家属/医生端展示识别
+        birth_date: birthDate, // ★ 新增：把出生日期一并传给后端，供家属/医生端展示识别
+        // ★ 新增：既往病史之前只存在本地缓存(this.data)，从来没有出现在
+        //   发给后端的请求体里，导致这个字段虽然UI上能勾选、能保存在本地，
+        //   但从未真正落库，后端risk_level.py也就无从参考。这里补上。
+        health_history: this.data.healthHistory || []
       });
 
       wx.hideLoading();

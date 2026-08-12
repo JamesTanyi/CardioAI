@@ -11,6 +11,7 @@
          对应三方共享留言板功能（feedback/feedback 页面） -->
     <view class="ps-feedback-btn" wx:if="{{isViewingPatient && selectedPatientId}}" bindtap="goToFeedback">
       💬 留言
+      <view class="ps-feedback-badge" wx:if="{{selectedPatientUnread > 0}}">{{selectedPatientUnread > 99 ? '99+' : selectedPatientUnread}}</view>
     </view>
   </view>
 
