@@ -11,7 +11,9 @@ Page({
     hr: '',
     currentRole: 'user',
     showAlert: false,
-    alertLevel: 'normal',
+    alertBg: '',
+    alertDot: '',
+    alertColor: '',
     alertMsg: '',
     // ★ 新增：未读留言数(基础线+各医生诊疗线汇总)，显示在"更多功能"入口旁边的角标
     selfUnreadFeedbackCount: 0,
@@ -244,10 +246,14 @@ Page({
     wx.navigateTo({ url: '/pages/history/month/month' });
   },
 
-  // ★ 改：不再展示大段建议文字的横幅——只根据后端已经算好的 riskLevel（个性化判断，
-  //   非固定阈值）给一个极短的状态标签，颜色随状态变化，嵌入输入卡片内，
-  //   点击可跳转到完整报告页查看详情文字。前端这里不做任何新的判断，
-  //   只是把后端已决定的分类（high/moderate）翻译成一句简短提示。
+  // ★ 改：跟着risk_level.py重构后的新版枚举值走(low/moderate/moderate_high/
+  //   critical，不再有旧版的"high")——之前这里还在按旧枚举判断，导致
+  //   moderate_high(Path A"中"档，比"关注"更需要留意的状态)完全没被处理，
+  //   直接落进else变成不显示横幅，真正该被看到的状态反而被隐藏了。
+  //   另外critical(Path B)不一定代表"数值偏高"，也可能是症状单独触发、
+  //   数值完全正常——横幅文案不能再断言"偏高"，改成中性的"需要留意"，
+  //   具体原因点进详情页看。颜色/文案直接在这里算好，wxml只管绑定，
+  //   不再用嵌套三元表达式判断。
   checkAlertStatus() {
     const history = wx.getStorageSync('measure_history') || [];
     if (history.length === 0) {
@@ -257,10 +263,21 @@ Page({
     const latest = history[0];
     const riskLevel = latest.riskLevel || 'normal';
 
-    if (riskLevel === 'high' || riskLevel === 'critical') {
-      this.setData({ showAlert: true, alertLevel: 'high' });
-    } else if (riskLevel === 'moderate') {
-      this.setData({ showAlert: true, alertLevel: 'moderate' });
+    const ALERT_CONFIG = {
+      critical:      { bg: '#FFF0F0', dot: '#F44336', color: '#D32F2F', msg: '上次测量结果需要留意，点击查看详情' },
+      moderate_high: { bg: '#FFF3E0', dot: '#FF9800', color: '#E65100', msg: '最近血压持续偏离，建议关注' },
+      moderate:      { bg: '#FFF8E8', dot: '#FFC107', color: '#B8860B', msg: '最近血压有些波动' },
+    };
+
+    const cfg = ALERT_CONFIG[riskLevel];
+    if (cfg) {
+      this.setData({
+        showAlert: true,
+        alertBg: cfg.bg,
+        alertDot: cfg.dot,
+        alertColor: cfg.color,
+        alertMsg: cfg.msg
+      });
     } else {
       this.setData({ showAlert: false });
     }

@@ -56,6 +56,31 @@ Page({
       wx.setStorageSync('last_viewed_patient', options.patientId);
       wx.setStorageSync('last_viewed_patient_name', patientName);
     }
+
+    // ★ 新增：单独注册一个App级前台监听——onShow/onHide只覆盖"页面导航切换"
+    // 这一种场景，覆盖不了"手机锁屏/切到别的App再回来"这种情况(小程序页面
+    // 计时器很可能被系统暂停，导航栈没变化时onShow不一定会重新触发，30秒
+    // 轮询就这样悄悄停摆，页面显示还在但数据早就不刷新了)。wx.onAppShow
+    // 跟着整个App前后台切换走，不受页面导航栈状态影响，用它兜底触发一次
+    // 真正的刷新。绑定的函数引用要保存下来，onUnload时才能正确注销。
+    this._onAppShowHandler = () => {
+      // ★ App从后台恢复(比如锁屏解锁、切回微信)，不管距上次刷新过了多久，
+      // 直接强制刷新一次——这个场景下我们不知道后台期间过去了多长时间，
+      // 也不知道页面计时器有没有被系统暂停，索性不依赖阈值判断，直接刷新最可靠。
+      if (this.data.isViewingPatient) {
+        this._preBindThenLoad();
+        this._startAutoRefresh();
+      }
+    };
+    wx.onAppShow(this._onAppShowHandler);
+    this._lastRefreshAt = Date.now();
+  },
+
+  onUnload() {
+    if (this._onAppShowHandler) {
+      wx.offAppShow(this._onAppShowHandler);
+      this._onAppShowHandler = null;
+    }
   },
 
   onShow() {
@@ -99,6 +124,7 @@ Page({
           const merged = this.mergeAndDeduplicate(serverRecords, localHistory);
           merged.sort((a, b) => new Date(b.datetime || b.date) - new Date(a.datetime || b.date));
           this.processHistoryData(merged);
+          this._lastRefreshAt = Date.now(); // ★ 新增：记录这次静默刷新成功完成的时间
         }
       })
       .catch(() => {});
@@ -133,6 +159,8 @@ Page({
    * ★ 从 app 全局绑定数据恢复患者列表
    */
   _restoreFromBindings() {
+    // ★ 新增：记录"最近一次真正完成刷新"的时间，方便排查时确认刷新有没有正常在跑
+    this._lastRefreshAt = Date.now();
     const app = getApp();
     const bindings = app.globalData.bindings;
 

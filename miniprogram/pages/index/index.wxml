@@ -19,19 +19,20 @@
 
   <!-- 核心数据输入卡片 -->
   <view class="card input-card">
-    <!-- ★ 改：之前是页面顶部一个独立的大横幅，显示后端返回的整段建议文字，
-         用户反馈太长、不该出现在输入页。现在改成嵌入输入卡片内的精简状态标签——
-         只显示极短文字，颜色随 alertLevel（后端 riskLevel 转译，不是前端重新判断）变化，
-         点击可跳转到完整的健康分析报告页查看详情。没有预警时这块完全不显示。
-         用内联样式直接绑定颜色，不依赖额外的 wxss 类。 -->
+    <!-- ★ 改：颜色/文案改成由index.js的checkAlertStatus()直接算好传过来
+         (alertBg/alertDot/alertColor/alertMsg)，wxml只管绑定，不再用嵌套
+         三元表达式判断——之前只有high/moderate两档，Path A"中"档
+         (moderate_high)完全没被处理会直接不显示横幅；且critical不一定
+         代表"数值偏高"(也可能是症状单独触发、数值正常)，文案已改成中性的
+         "需要留意"，不再断言"偏高"。没有预警时这块完全不显示。 -->
     <view
       class="bp-status-tag"
       wx:if="{{showAlert}}"
       bindtap="goToLatestResult"
-      style="display:flex;align-items:center;padding:12rpx 20rpx;border-radius:16rpx;margin-bottom:16rpx;{{alertLevel === 'high' ? 'background:#FFF0F0;' : 'background:#FFF8E8;'}}"
+      style="display:flex;align-items:center;padding:12rpx 20rpx;border-radius:16rpx;margin-bottom:16rpx;background:{{alertBg}};"
     >
-      <text style="width:12rpx;height:12rpx;border-radius:50%;margin-right:12rpx;{{alertLevel === 'high' ? 'background:#F44336;' : 'background:#FFC107;'}}"></text>
-      <text style="flex:1;font-size:26rpx;{{alertLevel === 'high' ? 'color:#D32F2F;' : 'color:#B8860B;'}}">{{alertLevel === 'high' ? '上次测量偏高，请留意' : '上次测量有波动'}}</text>
+      <text style="width:12rpx;height:12rpx;border-radius:50%;margin-right:12rpx;background:{{alertDot}};"></text>
+      <text style="flex:1;font-size:26rpx;color:{{alertColor}};">{{alertMsg}}</text>
       <text style="color:#999;font-size:28rpx;">›</text>
     </view>
 

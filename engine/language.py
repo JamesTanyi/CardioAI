@@ -138,6 +138,39 @@ def _action_advice(risk_bundle: Dict, for_role: str = "user") -> List[str]:
         return [f"目前在{you_or_ta}平时的稳定范围内，继续保持。"]
 
 
+def _path_b_reason_lines(risk_bundle: Dict, for_role: str = "user") -> List[str]:
+    """
+    ★ 新增：Path B触发时说明"为什么"——之前只给"建议立即就医"这个结论，
+    没说依据。尤其symptom_only这种情况(数值完全正常、纯粹靠症状触发)，
+    患者/家属看到"数值正常"却被告知"立即就医"会觉得莫名其妙，容易怀疑
+    是不是系统判断错了，必须说清楚触发的前提，不能只给结论。
+    可能同时命中多条触发原因(比如数值剧变+症状)，都列出来。
+    for_role区分患者本人("您")和家属("TA")视角的措辞。
+    """
+    you_or_ta = "您" if for_role == "user" else "TA"
+    triggers = risk_bundle.get("path_b_triggers", [])
+    lines = []
+    if "symptom_only" in triggers:
+        lines.append(
+            f"{you_or_ta}这次记录的症状（如胸痛、单侧肢体无力、言语不清等）属于需要高度警惕的信号——"
+            "这类症状即使当下血压数值正常，也可能提示急性心脑血管情况正在发生，"
+            "数值本身不能排除风险，因此建议立即就医，不需要等到数值也出现异常才行动。"
+        )
+    if "absolute_threshold" in triggers:
+        lines.append(
+            "本次血压已经达到需要立即处理的安全警戒线（收缩压≥170或舒张压≥105 mmHg），"
+            "这是不分个人基线高低的通用安全上限。"
+        )
+    if "acute_shift_symptom" in triggers:
+        lines.append("血压在短时间内出现了明显波动，同时伴有身体不适，两者叠加提示可能是急性变化。")
+    if "hypoperfusion" in triggers:
+        lines.append(
+            f"{you_or_ta}平时血压基线偏高，这次却突然降到偏低水平——这种\"从高骤降\"的模式本身就是危险信号，"
+            "可能提示重要器官供血不足。"
+        )
+    return lines
+
+
 def _vascular_pp(steady_result: Dict) -> Dict:
     """脉压差分析(按点数窗口，供医生端/次要展示用)"""
     win, _ = _get_window(steady_result)
@@ -173,13 +206,13 @@ def _generate_user_text(records: List[Dict], steady_result: Dict, risk_bundle: D
         lines.append("⚠️ 这次的测量结果需要您特别留意。")
         lines.append("")
 
+        # 小节①：本次记录（事实）
+        lines.append("📋 本次记录")
         latest = records[-1] if records else {}
         sbp = latest.get("sbp")
         dbp = latest.get("dbp")
         if sbp is not None and dbp is not None:
-            lines.append(f"**本次血压 {sbp:.0f}/{dbp:.0f} mmHg。**")
-        lines.append("")
-
+            lines.append(f"血压 {sbp:.0f}/{dbp:.0f} mmHg")
         symptom_lvl = risk_bundle.get("symptom_level", "none")
         if symptom_lvl in ("high", "medium"):
             lines.append("您提到了身体不适，建议先静坐休息。")
@@ -187,6 +220,16 @@ def _generate_user_text(records: List[Dict], steady_result: Dict, risk_bundle: D
             lines.append("如果现在有头晕、胸闷、手脚无力等感觉，请立即静坐休息并告知家人。")
         lines.append("")
 
+        # 小节②：为什么（原因说明，尤其symptom_only这种数值正常也要就医的情况）
+        reason_lines = _path_b_reason_lines(risk_bundle, for_role="user")
+        if reason_lines:
+            lines.append("🔍 为什么现在建议就医")
+            for r in reason_lines:
+                lines.append(r)
+            lines.append("")
+
+        # 小节③：接下来怎么做
+        lines.append("💡 接下来怎么做")
         for line in _action_advice(risk_bundle, for_role="user"):
             lines.append(line)
         lines.append("")
@@ -224,11 +267,12 @@ def _generate_user_text(records: List[Dict], steady_result: Dict, risk_bundle: D
         lines.append("")
         fact_lines = _fact_and_trend_lines(steady_result)
         if fact_lines:
-            lines.append("您的近期血压情况：")
+            lines.append("📊 您的近期血压情况")
             for f in fact_lines:
                 lines.append(f"  {f}")
             lines.append("")
 
+        lines.append("💡 建议")
         for line in _action_advice(risk_bundle, for_role="user"):
             lines.append(line)
 
@@ -239,11 +283,12 @@ def _generate_user_text(records: List[Dict], steady_result: Dict, risk_bundle: D
 
         fact_lines = _fact_and_trend_lines(steady_result)
         if fact_lines:
-            lines.append("您的近期血压情况：")
+            lines.append("📊 您的近期血压情况")
             for f in fact_lines:
                 lines.append(f"  {f}")
             lines.append("")
 
+        lines.append("💡 建议")
         for line in _action_advice(risk_bundle, for_role="user"):
             lines.append(line)
 
@@ -285,13 +330,24 @@ def _generate_watcher_text(steady_result: Dict, risk_bundle: Dict) -> str:
     # ── 状态信号：只讲事实+建议，不出现程度标签 ──
     if path == "B":
         lines.append("🚨 需要您立即关注")
+        lines.append("")
+        lines.append("📋 本次记录")
         lines.append("TA这次的测量结果需要特别留意，建议您现在联系确认状态。")
         if symptom_lvl in ("high", "medium"):
             lines.append("同时伴有身体不适症状，建议直接前往就医，不要等待。")
         else:
             lines.append("目前无明显不适症状，但建议今天陪同或电话确认用药情况。")
-        for line in _action_advice(risk_bundle, for_role="watcher"):
-            lines.append(line)
+        lines.append("")
+
+        reason_lines = _path_b_reason_lines(risk_bundle, for_role="watcher")
+        if reason_lines:
+            lines.append("🔍 为什么现在建议就医")
+            for r in reason_lines:
+                lines.append(r)
+            lines.append("")
+        # 注：接下来"怎么做"的内容由下面"🛡️ 您现在可以做什么"这个分步清单
+        # 承担，不再重复调用_action_advice——那段泛泛的"建议就医"不如
+        # 这里的分步清单具体，避免同一份报告里说两遍类似的话
     else:
         fact_lines = _fact_and_trend_lines(steady_result)
         if tier == "中":
@@ -303,11 +359,13 @@ def _generate_watcher_text(steady_result: Dict, risk_bundle: Dict) -> str:
             lines.append(f"TA已坚持记录 {total_days} 天，血压状态稳定，您可以放心。")
 
         if fact_lines:
-            lines.append("TA近期的血压情况：")
+            lines.append("📊 TA近期的血压情况")
             for f in fact_lines:
                 lines.append(f"  {f}")
 
         if tier in ("中", "关注"):
+            lines.append("")
+            lines.append("💡 建议")
             for line in _action_advice(risk_bundle, for_role="watcher"):
                 lines.append(line)
 
