@@ -12,6 +12,7 @@ import matplotlib
 import os
 import time
 import uuid
+import glob
 
 # 部署环境（容器/云托管）通常不带中文字体，不配置会导致图里中文全部变成方框。
 # 按优先级尝试几个常见的中文字体，一个都找不到就退回默认。
@@ -38,6 +39,22 @@ RISK_COLOR = {
 # ==========================
 # 趋势箭头
 # ==========================
+
+def _cleanup_old_files(output_dir, pattern, max_age_days=30):
+    """
+    ★ 新增：文件名从固定改成带时间戳的唯一名字之后，static/reports目录
+    会持续累积图片文件，不会再像以前那样被同名覆盖。这里做一个简单的
+    随手清理——每次生成新图时，顺手把同类型超过max_age_days天的旧文件
+    删掉，不需要单独部署一个定时任务。清理失败不影响本次图表生成本身。
+    """
+    try:
+        now = time.time()
+        for filepath in glob.glob(os.path.join(output_dir, pattern)):
+            if now - os.path.getmtime(filepath) > max_age_days * 86400:
+                os.remove(filepath)
+    except Exception as e:
+        print(f"⚠️ 清理旧图表文件失败(不影响本次生成): {e}", flush=True)
+
 
 def _arrow(value):
     if value >= 0.6:
@@ -109,6 +126,7 @@ def plot_risk_scores(risk_bundle, output_dir):
     # 全应用范围内最新生成的那张图，跟这条记录本身完全无关，医疗类应用
     # 这是不能接受的。改成时间戳+随机后缀的唯一文件名，每次分析各自独立。
     os.makedirs(output_dir, exist_ok=True)
+    _cleanup_old_files(output_dir, "risk_scores_*.png")
     unique_suffix = f"{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
     out_path = os.path.join(output_dir, f"risk_scores_{unique_suffix}.png")
     plt.tight_layout()

@@ -178,6 +178,15 @@ Page({
         symptoms: selectedSymptoms
       };
 
+      // ★ 新增：外键约束失败(MySQL 1452)是账号身份数据问题(比如这台设备
+      // 本地缓存的user_id指向一个服务器上已经不存在的账号)，不是网络
+      // 问题，重试解决不了，反而白白多等好几秒才失败。检测到这种情况
+      // 直接引导用户重新登录，不进入下面的重试循环。
+      const isStaleIdentityError = (err) => {
+        const msg = (err && err.message) || '';
+        return msg.indexOf('FOREIGN KEY') !== -1 || msg.indexOf('foreign key constraint') !== -1 || msg.indexOf('1452') !== -1;
+      };
+
       const requestWithRetry = (retries) => {
         cloudService.analyze(payload)
           .then((res) => {
@@ -204,6 +213,24 @@ Page({
             }
           })
           .catch((err) => {
+            if (isStaleIdentityError(err)) {
+              wx.hideLoading();
+              console.error('[submitAnalysis] 账号身份数据已失效(外键约束拒绝)', err);
+              wx.showModal({
+                title: '账号信息已失效',
+                content: '本地保存的账号信息已经不存在，需要重新登录后才能继续测量。',
+                showCancel: false,
+                confirmText: '重新登录',
+                success: () => {
+                  wx.removeStorageSync('app_user_id');
+                  wx.removeStorageSync('userId');
+                  wx.removeStorageSync('userProfile');
+                  wx.removeStorageSync('currentRole');
+                  wx.reLaunch({ url: '/pages/onboarding/UserProfile/UserProfile' });
+                }
+              });
+              return;
+            }
             if (retries > 0) {
               setTimeout(() => requestWithRetry(retries - 1), 2000);
             } else {

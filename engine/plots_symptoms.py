@@ -11,6 +11,7 @@ import matplotlib
 import os
 import time
 import uuid
+import glob
 from datetime import datetime
 
 # 同 plots_risk.py：部署环境通常没有中文字体，这里做同样的兜底配置。
@@ -69,6 +70,21 @@ def _symptom_level(sym):
     if sym in LOW_RISK_SYMPTOMS:
         return "low"
     return None
+
+
+def _cleanup_old_files(output_dir, pattern, max_age_days=30):
+    """
+    ★ 新增：跟plots_risk.py同样的清理逻辑——文件名改成带时间戳的唯一
+    名字之后，static/reports目录会持续累积文件，这里随手清掉同类型
+    超过max_age_days天的旧文件，不需要单独部署定时任务。
+    """
+    try:
+        now = time.time()
+        for filepath in glob.glob(os.path.join(output_dir, pattern)):
+            if now - os.path.getmtime(filepath) > max_age_days * 86400:
+                os.remove(filepath)
+    except Exception as e:
+        print(f"⚠️ 清理旧图表文件失败(不影响本次生成): {e}", flush=True)
 
 
 # ==========================
@@ -131,6 +147,7 @@ def plot_symptom_timeline(records, events_by_segment, output_dir):
     # 显示的是全应用范围内最新那次的症状图，跟这条记录本身无关。改成
     # 时间戳+随机后缀的唯一文件名。
     os.makedirs(output_dir, exist_ok=True)
+    _cleanup_old_files(output_dir, "symptom_timeline_*.png")
     unique_suffix = f"{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
     out_path = os.path.join(output_dir, f"symptom_timeline_{unique_suffix}.png")
     plt.tight_layout()
