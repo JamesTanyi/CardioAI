@@ -89,6 +89,13 @@ def analyze_measurement():
         user_msg = engine_res.get("message", "分析完成")
         details = engine_res.get("details", {})
 
+        # ★ 新增：暴露"是否还在入门期(数据不够多)"给前端，供result.js判断
+        # 要不要展示一个有把握的风险结论横幅——数据不够时，哪怕内部算出了
+        # 一个tier，也不该在横幅上给出确定性的结论，容易跟正文"还需X次
+        # 测量才能解锁"这句话自相矛盾。
+        lifecycle = details.get("lifecycle", {})
+        is_onboarding = lifecycle.get("ux_phase") == "P1_ONBOARDING"
+
         cursor.execute(f"""
             INSERT INTO measurements (user_id, sbp, dbp, hr, symptoms, risk_level, risk_text, analysis, datetime)
             VALUES ({ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph}, {ph})
@@ -108,7 +115,8 @@ def analyze_measurement():
                 "riskLevel": risk_level,
                 "message": user_msg,
                 "reports": details.get("reports", {}),
-                "timeline": details.get("timeline", [])
+                "timeline": details.get("timeline", []),
+                "isOnboarding": is_onboarding
             }
         })
 

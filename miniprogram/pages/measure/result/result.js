@@ -7,6 +7,9 @@ Page({
     userLines:     [], // ★ 改：不再是纯文本字符串，而是解析 **强调标记** 之后的结构化行数组
     riskLevel:     'low',
     riskLabel:     '',
+    riskBg:        '',
+    riskColor:     '',
+    showRiskBanner: true,
     pulsePressure: 0,
 
     // ★ 新增：30天统计摘要 / 14天趋势图 / 14天测量记录——
@@ -23,17 +26,35 @@ Page({
     if (!options.data) return;
     try {
       const result = JSON.parse(decodeURIComponent(options.data));
-
       const reports = result.reports || {};
-      const riskLabelMap = {
-        none: '正常', low: '低风险', normal: '低风险',
-        moderate: '中风险', high: '高风险', critical: '高风险'
+
+      // ★ 修复：之前riskLabelMap里根本没有moderate_high这个key(Path A"中"档，
+      //   三档里最需要留意的状态)，命中时riskLabelMap['moderate_high']是
+      //   undefined，直接落进"|| '低风险'"这个兜底——"中"档会被显示成
+      //   "低风险"，方向完全反了，是这几处横幅里最严重的一个。
+      //   现在改成跟index.js的ALERT_CONFIG完全一致的四档配色方案，避免
+      //   两个页面各自维护一套映射、又出现新的不一致。
+      const RISK_DISPLAY_CONFIG = {
+        low:           { label: '低风险',   bg: '#E8F5E9', color: '#2E7D32' },
+        moderate:      { label: '有些波动', bg: '#FFF8E8', color: '#B8860B' },
+        moderate_high: { label: '持续偏离', bg: '#FFF3E0', color: '#E65100' },
+        critical:      { label: '需要留意', bg: '#FFF0F0', color: '#D32F2F' }
       };
+      const cfg = RISK_DISPLAY_CONFIG[result.riskLevel] || RISK_DISPLAY_CONFIG.low;
+
+      // ★ 新增：数据还不够多(入门期)时，不展示一个有把握的风险结论横幅——
+      //   哪怕内部算出了某个tier，正文都已经在说"还需X次测量才能解锁"，
+      //   横幅却先给一个确定性结论，会自相矛盾。isOnboarding由后端
+      //   measure_views.py新增字段提供，不用前端自己猜。
+      const isOnboarding = !!result.isOnboarding;
 
       this.setData({
         result,
         riskLevel:     result.riskLevel || 'low',
-        riskLabel:     riskLabelMap[result.riskLevel] || '低风险',
+        riskLabel:     cfg.label,
+        riskBg:        cfg.bg,
+        riskColor:     cfg.color,
+        showRiskBanner: !isOnboarding,
         userLines:     this.parseEmphasisText(reports.user || '暂无数据'),
         pulsePressure: result.pulsePressure || 0
       });

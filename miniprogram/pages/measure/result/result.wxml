@@ -2,8 +2,13 @@
 <view class="container">
 
 <!-- 风险状态卡片 -->
-<view class="risk-card {{riskLevel}}">
-  <text class="risk-label">{{riskLabel}}</text>
+<!-- ★ 改：颜色不再依赖wxss里按riskLevel字符串命名的类(之前"moderate_high"这个
+     值大概率在wxss里根本没有对应样式，就算文字改对了也可能没有正确的颜色)，
+     改成跟index.js的checkAlertStatus()一致的模式，颜色由result.js直接算好
+     传过来(riskBg/riskColor)。数据不够多(入门期)时不显示这个卡片，避免跟
+     正文"还需X次测量才能解锁"自相矛盾。 -->
+<view class="risk-card" wx:if="{{showRiskBanner}}" style="background:{{riskBg}};">
+  <text class="risk-label" style="color:{{riskColor}};">{{riskLabel}}</text>
   <text class="risk-sub">基于您的个人健康档案分析</text>
 </view>
 
