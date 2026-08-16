@@ -1,0 +1,62 @@
+/* pages/report/clinical/clinical.wxss */
+page {
+  background: #f5f6f8;
+}
+
+.container {
+  padding: 24rpx 24rpx 140rpx;
+}
+
+.header-bar {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 20rpx;
+}
+
+.header-title {
+  font-size: 34rpx;
+  font-weight: bold;
+  color: #222;
+}
+
+.header-sub {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: #999;
+}
+
+.report-body {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.empty-state {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 80rpx 24rpx;
+  text-align: center;
+}
+
+.empty-text {
+  font-size: 26rpx;
+  color: #999;
+}
+
+.back-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20rpx 24rpx calc(20rpx + env(safe-area-inset-bottom));
+  background: #fff;
+  box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.back-btn {
+  background: #07C160;
+  color: #fff;
+  border-radius: 44rpx;
+  font-size: 28rpx;
+}

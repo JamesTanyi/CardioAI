@@ -1,5 +1,6 @@
 // pages/more/more.js
 const app = getApp();
+const cloudService = require('../../utils/cloudService.js');
 
 // 万能安全跳转器：自动识别并处理 TabBar 页面，路径错误时提供友好提示
 function safeNavigate(url) {
@@ -70,5 +71,44 @@ Page({
       }
     }
     safeNavigate('/pages/history/month/month');
+  },
+
+  /**
+   * ★ 新增：常驻的"完整临床报告"入口——服务"随时想看/复诊前主动查看"这类
+   * 场景，跟result.js那个"刚测完立刻可用"的快捷入口不冲突，各自解决对方
+   * 解决不了的场景（这个入口手头没有"刚测完"的上下文，需要单独拉一次
+   * 最新记录）。
+   * 报告内容不通过URL参数传递——doctor报告内容可能很长(包含图表<img>
+   * 标签等)，encodeURIComponent后容易超过小程序navigateTo的URL长度限制，
+   * 改用app.globalData中转，避免这个风险。
+   */
+  goToClinicalReport() {
+    const userId = wx.getStorageSync('app_user_id');
+    if (!userId) {
+      wx.showToast({ title: '请先完成注册', icon: 'none' });
+      return;
+    }
+    wx.showLoading({ title: '加载中...', mask: true });
+    cloudService.getHistory(userId, '', 1)
+      .then((res) => {
+        wx.hideLoading();
+        if (res && res.code === 0 && Array.isArray(res.data) && res.data.length > 0) {
+          const latest = res.data[0];
+          const doctorReport = (latest.analysis && latest.analysis.doctor) || '';
+          if (!doctorReport) {
+            wx.showToast({ title: '暂无可用报告，请先完成一次测量', icon: 'none' });
+            return;
+          }
+          app.globalData.pendingClinicalReport = doctorReport;
+          safeNavigate('/pages/report/clinical/clinical');
+        } else {
+          wx.showToast({ title: '暂无测量记录', icon: 'none' });
+        }
+      })
+      .catch((err) => {
+        wx.hideLoading();
+        console.error('[More] 获取临床报告失败', err);
+        wx.showToast({ title: '加载失败，请重试', icon: 'none' });
+      });
   }
 });

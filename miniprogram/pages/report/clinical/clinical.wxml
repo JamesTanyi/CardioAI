@@ -1,0 +1,21 @@
+<!-- pages/report/clinical/clinical.wxml -->
+<view class="container">
+
+  <view class="header-bar">
+    <text class="header-title">📋 完整临床报告</text>
+    <text class="header-sub">可直接出示给接诊医生参考，不需要额外登录任何账号</text>
+  </view>
+
+  <view wx:if="{{hasReport}}" class="report-body">
+    <rich-text nodes="{{reportHtml}}"></rich-text>
+  </view>
+
+  <view wx:else class="empty-state">
+    <text class="empty-text">暂无可显示的报告内容，请先完成一次血压测量。</text>
+  </view>
+
+  <view class="back-bar">
+    <button class="back-btn" bindtap="goBack">返回</button>
+  </view>
+
+</view>

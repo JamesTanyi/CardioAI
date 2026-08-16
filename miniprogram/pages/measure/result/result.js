@@ -1,4 +1,5 @@
 // pages/measure/result/result.js
+const app = getApp();
 const cloudService = require('../../../utils/cloudService.js');
 
 Page({
@@ -11,6 +12,13 @@ Page({
     riskColor:     '',
     showRiskBanner: true,
     pulsePressure: 0,
+
+    // ★ 新增：完整临床报告快捷入口——这是"首选"入口，服务Path B刚触发、
+    // 马上要去看医生这类零跳转场景。数据这次响应里已经有了(reports.doctor)，
+    // 不需要额外请求。critical(Path B)时突出显示，其他情况仍然可用只是
+    // 样式subdued一些。
+    hasClinicalReport: false,
+    clinicalReportProminent: false,
 
     // ★ 新增：30天统计摘要 / 14天趋势图 / 14天测量记录——
     //   这三块之前这个页面完全没有历史数据来源，现在复用已有的
@@ -56,7 +64,11 @@ Page({
         riskColor:     cfg.color,
         showRiskBanner: !isOnboarding,
         userLines:     this.parseEmphasisText(reports.user || '暂无数据'),
-        pulsePressure: result.pulsePressure || 0
+        pulsePressure: result.pulsePressure || 0,
+        hasClinicalReport: !!(reports.doctor),
+        // ★ Path B(critical)时突出显示这个入口——这正是"马上要去看医生"
+        // 的场景，理应是首选、最显眼的操作
+        clinicalReportProminent: result.riskLevel === 'critical'
       });
     } catch (e) {
       console.error('解析结果失败:', e);
@@ -296,6 +308,23 @@ Page({
 
   goBack() {
     wx.navigateBack();
+  },
+
+  /**
+   * ★ 新增："首选"快捷入口——数据这次响应里(result.reports.doctor)已经有了，
+   * 不需要重新请求，直接中转到app.globalData再跳转新页面。跟more.js里
+   * 那个常驻入口是同一个目标页面，只是这里的数据来源不同(这里是当次
+   * 响应自带的，more.js那边要单独拉一次最新记录)。
+   */
+  goToClinicalReport() {
+    const reports = (this.data.result && this.data.result.reports) || {};
+    const doctorReport = reports.doctor || '';
+    if (!doctorReport) {
+      wx.showToast({ title: '暂无可用报告', icon: 'none' });
+      return;
+    }
+    app.globalData.pendingClinicalReport = doctorReport;
+    wx.navigateTo({ url: '/pages/report/clinical/clinical' });
   },
 
   goHome() {

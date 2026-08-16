@@ -14,7 +14,8 @@
   Path A(渐进式分档)/Path B(优先特例，命中即直接判定需要就医)两条路径
   ——具体见risk_level.py，这里只负责把判断结果转成合适的措辞，
   不重新做判断。Path B触发时统一明确建议立即就医，并提示就医时可以
-  把医生端报告页面出示给接诊医生参考。医生端继续看完整原始数据，
+  在"更多功能"里打开"完整临床报告"出示给接诊医生参考(患者自己在
+  应用内就能调出，不需要绑定过医生)。医生端继续看完整原始数据，
   程度分档、触发依据、既往病史都完整展示，结论由医生自己下。
 
 订阅留存设计：
@@ -117,8 +118,10 @@ def _action_advice(risk_bundle: Dict, for_role: str = "user") -> List[str]:
     """
     ★ 新增：行动建议——不出现"低/关注/中"这类程度标签，只用"关注/重视/
     建议就医"这类行动词。Path B命中时统一是"立即就医"，并提示就医时
-    可以把医生端报告页面出示给接诊医生参考；有高危病史时额外提醒一句。
-    Path A按tier选择对应措辞。for_role区分患者本人("您")和家属("TA")视角。
+    可以在"更多功能"里打开"完整临床报告"出示给接诊医生参考(患者本人
+    在应用内就能直接调出，不需要绑定过医生、不依赖医生账号权限)；
+    有高危病史时额外提醒一句。Path A按tier选择对应措辞。for_role区分
+    患者本人("您")和家属("TA")视角。
     """
     you_or_ta = "您" if for_role == "user" else "TA"
 
@@ -126,7 +129,7 @@ def _action_advice(risk_bundle: Dict, for_role: str = "user") -> List[str]:
         lines = [f"**建议{you_or_ta}立即就医。**"]
         if risk_bundle.get("has_high_risk_history"):
             lines.append(f"结合{you_or_ta}此前的病史，这次的情况需要更谨慎对待，不要拖延。")
-        lines.append("就医时，建议带上或出示医生端报告页面，方便接诊医生快速了解情况。")
+        lines.append("就医时，建议在\"更多功能\"里打开\"完整临床报告\"，出示给接诊医生参考。")
         return lines
 
     tier = risk_bundle.get("tier", "低")

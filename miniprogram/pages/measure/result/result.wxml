@@ -12,6 +12,24 @@
   <text class="risk-sub">基于您的个人健康档案分析</text>
 </view>
 
+<!-- ★ 新增：完整临床报告快捷入口——"首选"入口，服务刚触发就医建议、
+     马上要去看医生这类零跳转场景。Path B(critical)时用醒目的红色按钮
+     突出显示；其他情况仍然可用，样式低调一些，不抢正文的注意力。
+     颜色/样式直接内联绑定，不依赖result.wxss里可能没定义的class
+     (跟前面risk-card同样的思路，避免"wxml引用了不存在的样式"这个坑)。 -->
+<view
+  wx:if="{{hasClinicalReport}}"
+  bindtap="goToClinicalReport"
+  style="display:flex;align-items:center;padding:{{clinicalReportProminent ? '28rpx 24rpx' : '20rpx 24rpx'}};border-radius:16rpx;margin-bottom:16rpx;{{clinicalReportProminent ? 'background:#D32F2F;' : 'background:#fff;border:2rpx solid #eee;'}}"
+>
+  <text style="font-size:{{clinicalReportProminent ? '40rpx' : '32rpx'}};margin-right:16rpx;">📋</text>
+  <view style="flex:1;display:flex;flex-direction:column;">
+    <text style="font-size:{{clinicalReportProminent ? '28rpx' : '26rpx'}};font-weight:{{clinicalReportProminent ? 'bold' : 'normal'}};color:{{clinicalReportProminent ? '#fff' : '#333'}};">{{clinicalReportProminent ? '就医时出示这份完整临床报告' : '查看完整临床报告'}}</text>
+    <text style="font-size:22rpx;margin-top:4rpx;color:{{clinicalReportProminent ? 'rgba(255,255,255,0.85)' : '#999'}};">含图表数据，可直接给医生看</text>
+  </view>
+  <text style="font-size:32rpx;color:{{clinicalReportProminent ? '#fff' : '#999'}};">›</text>
+</view>
+
 <!-- 统计摘要（30天） -->
 <view class="section-card">
   <view class="section-title">📊 30天概览</view>

@@ -66,6 +66,18 @@
       <text class="feature-arrow">›</text>
     </view>
 
+    <!-- ★ 新增：完整临床报告——常驻入口，随时可以调出最新一次分析对应的
+         完整医生端报告(含图表)，可直接出示给医生看，不需要绑定过医生、
+         不依赖医生账号权限，因为这份数据本来就是患者自己的 -->
+    <view class="feature-card" bindtap="goToClinicalReport">
+      <view class="feature-icon">📋</view>
+      <view class="feature-info">
+        <text class="feature-title">完整临床报告</text>
+        <text class="feature-desc">可直接出示给医生查看</text>
+      </view>
+      <text class="feature-arrow">›</text>
+    </view>
+
     <!-- ★ "绑定管理"卡片已删除：已绑定医生/家属列表 + 解绑功能，
          现在直接合并进上面的"家人监护"和"绑定医生"两张卡片各自跳转的
          family/family 页面里(按 tab 展示对应列表)，不再需要单独的

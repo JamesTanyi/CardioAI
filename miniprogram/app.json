@@ -13,6 +13,7 @@
     "feedback/feedback",
     "pages/onboarding/bind-confirm/bind-confirm",
     "pages/doctor/patient-list/patient-list",
+    "pages/report/clinical/clinical",
     "pages/more/more"
   ],
   "window": {
