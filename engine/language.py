@@ -455,7 +455,7 @@ def _generate_doctor_text(
     lines = []
 
     # ── 时间序列概览 ──
-    lines.append("## Time Series")
+    lines.append("## Time Series（时间序列）")
     if records:
         t0 = records[0].get("datetime") or records[0].get("timestamp")
         t1 = records[-1].get("datetime") or records[-1].get("timestamp")
@@ -468,7 +468,7 @@ def _generate_doctor_text(
 
     # ── 稳态窗口数据(按点数) ──
     win, win_label = _get_window(steady_result)
-    lines.append(f"## Steady-State Window ({win_label})")
+    lines.append(f"## Steady-State Window（稳态窗口：{win_label}）")
     if win:
         base = win.get("baseline", {})
         recent = win.get("recent", {})
@@ -488,7 +488,7 @@ def _generate_doctor_text(
     lines.append("")
 
     # ── ★ 新增：多指标非对称band + 当前偏离比例(Path A分档的原始依据) ──
-    lines.append("## Personalized Bands (SBP/DBP/HR/PP)")
+    lines.append("## Personalized Bands（个体化正常范围：收缩压/舒张压/心率/脉压差）")
     bands = steady_result.get("bands", {}) or {}
     current_deviation = steady_result.get("current_deviation", {}) or {}
     for m in ["sbp", "dbp", "hr", "pp"]:
@@ -504,7 +504,7 @@ def _generate_doctor_text(
     lines.append("")
 
     # ── ★ 新增：14d/28d动态趋势(原始数据，跟患者/家属端用的是同一份) ──
-    lines.append("## 14d / 28d Dynamic Trend")
+    lines.append("## 14d / 28d Dynamic Trend（14天/28天动态趋势）")
     dynamic_trend = steady_result.get("dynamic_trend", {}) or {}
     if dynamic_trend:
         for m, dt in dynamic_trend.items():
@@ -518,7 +518,7 @@ def _generate_doctor_text(
     lines.append("")
 
     # ── 稳态分段(置信度融合确认后的真实结构变化) ──
-    lines.append("## Confirmed Segments (confidence-fused change-point detection)")
+    lines.append("## Confirmed Segments（已确认稳态分段：置信度融合变点检测）")
     segments = steady_result.get("segments", [])
     if segments:
         for i, seg in enumerate(segments):
@@ -532,7 +532,7 @@ def _generate_doctor_text(
 
     # ── ★ 改：风险评分——反映Path A/B新架构，不再是旧的chronic_tension/
     #    acute_push两个分数 ──
-    lines.append("## Risk Assessment (Path A/B)")
+    lines.append("## Risk Assessment（风险评估：Path A/B）")
     path = risk_bundle.get("path", "A")
     lines.append(f"- path              : {path}")
     if path == "A":
@@ -548,7 +548,7 @@ def _generate_doctor_text(
 
     # ── 纵向依从性 ──
     long_data = risk_bundle.get("longitudinal", {})
-    lines.append("## Longitudinal Adherence")
+    lines.append("## Longitudinal Adherence（长期依从性）")
     lines.append(f"- stage           : {long_data.get('stage','N/A')}")
     lines.append(f"- ux_phase        : {long_data.get('ux_phase','N/A')}")
     lines.append(f"- maturity        : {long_data.get('maturity_level','N/A')}")
@@ -560,14 +560,14 @@ def _generate_doctor_text(
 
     # ── 模式识别 ──
     patterns = figure_paths.get("patterns", {})
-    lines.append("## Patterns")
+    lines.append("## Patterns（血压模式）")
     lines.append(f"- nocturnal_dip   : {patterns.get('nocturnal_dip','N/A')}")
     lines.append(f"- morning_surge   : {patterns.get('morning_surge','N/A')}")
     lines.append(f"- variability     : {patterns.get('variability','N/A')}")
     lines.append("")
 
     # ── 轨迹数据(按点数窗口) ──
-    lines.append("## Trajectory")
+    lines.append("## Trajectory（变化轨迹）")
     trajectory = steady_result.get("trajectory", {})
     for m, steps in trajectory.items():
         for step in steps:
@@ -578,7 +578,7 @@ def _generate_doctor_text(
     chart_fields = ["risk_scores_url", "symptom_timeline_url"]
     has_charts = any(figure_paths.get(f) for f in chart_fields)
     if has_charts:
-        lines.append("## Charts")
+        lines.append("## Charts（图表）")
         for f in chart_fields:
             url = figure_paths.get(f)
             if url:
